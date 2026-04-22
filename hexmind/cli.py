@@ -106,6 +106,8 @@ def config(
 @app.command()
 def doctor() -> None:
     """Check that all required binaries and services are available."""
+    # TODO: Display VERSION_ROADMAP and current version stage
+    # TODO: Show "Next milestone: 0.2.0 — All runners + AI engine"
     raise NotImplementedError("TODO: implement")
 
 

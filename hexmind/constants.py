@@ -2,7 +2,18 @@
 
 from pathlib import Path
 
-HEXMIND_VERSION: str = "1.0.0"
+HEXMIND_VERSION: str = "0.1.0"
+HEXMIND_CODENAME: str = "alpha"
+
+# Version roadmap constants (for doctor command display)
+VERSION_ROADMAP: dict[str, str] = {
+    "0.1.0": "Alpha — core scaffold and database layer",
+    "0.2.0": "Beta — all runners, AI engine, agentic loop",
+    "0.3.0": "RC — reports, search, integration tested",
+    "1.0.0": "Stable Release 1 — production ready",
+    "2.0.0": "Stable Release 2 — nuclei, batch scanning, plugins",
+    "3.0.0": "Stable Release 3 — API mode, team features, scheduling",
+}
 
 HEXMIND_DIR: Path = Path.home() / ".hexmind"
 DB_PATH: Path = HEXMIND_DIR / "hexmind.db"

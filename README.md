@@ -1,4 +1,4 @@
-# HexMind
+# HexMind v0.1.0-alpha
 
 AI-powered local penetration testing assistant.
 
@@ -30,3 +30,14 @@ hexmind scan example.com
 - Python 3.11+
 - Ollama (`curl https://ollama.ai/install.sh | sh`)
 - System tools: nmap, whois, whatweb, nikto, dig, curl, gobuster, sslscan
+
+## Roadmap
+
+| Version | Stage  | Description                                       |
+|---------|--------|---------------------------------------------------|
+| 0.1.0   | Alpha  | Core scaffold, DB layer ← current                 |
+| 0.2.0   | Beta   | All recon runners, AI engine, agentic loop        |
+| 0.3.0   | RC     | Reports, web search, CVE lookup, full integration |
+| 1.0.0   | Stable | Production-ready first release                    |
+| 2.0.0   | Stable | Nuclei, batch scanning, plugin system             |
+| 3.0.0   | Stable | REST API, team features, scheduled scans          |
