@@ -1,0 +1,41 @@
+[ai]
+model = "mistral"
+base_url = "http://localhost:11434"
+temperature = 0.1
+max_tokens = 4096
+stream = true
+
+[scan]
+max_iterations = 5
+timeout = 300
+default_profile = "standard"
+allow_private = false
+parallel_tools = true
+
+[db]
+path = "~/.hexmind/hexmind.db"
+
+[tools]
+nmap = "nmap"
+whois = "whois"
+whatweb = "whatweb"
+nikto = "nikto"
+dig = "dig"
+curl = "curl"
+gobuster = "gobuster"
+sslscan = "sslscan"
+
+[search]
+ddg_rate_limit = 2.0
+nvd_rate_limit = 6.0
+max_results = 5
+
+[reports]
+output_dir = "~/hexmind-reports"
+default_format = "html"
+include_raw = true
+
+[ui]
+stream_ai_output = true
+show_commands = true
+verbose = false

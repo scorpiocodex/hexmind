@@ -1,0 +1,30 @@
+# HexMind Security Report
+**Target:** {{ scan.target }}
+**Date:** {{ generated_at }}
+**Risk Score:** {{ risk_score }}/100
+
+## Executive Summary
+{{ executive_summary }}
+
+## Findings
+{% for finding in findings %}
+### {{ loop.index }}. [{{ finding.severity }}] {{ finding.title }}
+- **Category:** {{ finding.category }}
+- **Component:** {{ finding.affected_component }}
+- **CVEs:** {{ finding.cve_ids | join(", ") if finding.cve_ids else "None" }}
+- **Confidence:** {{ (finding.confidence_score * 100) | int }}%
+
+{{ finding.description }}
+
+**Remediation:** {{ finding.remediation }}
+
+---
+{% endfor %}
+
+## Tool Output Summary
+{% for tool_name, result in tool_results.items() %}
+### {{ tool_name }}
+```
+{{ result.raw_output[:2000] if result.raw_output else "No output" }}
+```
+{% endfor %}

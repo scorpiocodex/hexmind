@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- placeholder — full template in Phase 8 -->
+<head>
+  <meta charset="UTF-8">
+  <title>HexMind Report — {{ scan.target }}</title>
+  <style>
+    body { font-family: sans-serif; margin: 2cm; }
+    h1 { color: #1e3a5f; }
+  </style>
+</head>
+<body>
+  <h1>HexMind Security Report</h1>
+  <p><strong>Target:</strong> {{ scan.target }}</p>
+  <p><strong>Date:</strong> {{ generated_at }}</p>
+  <p><strong>Risk Score:</strong> {{ risk_score }}/100</p>
+  <h2>Executive Summary</h2>
+  <p>{{ executive_summary }}</p>
+</body>
+</html>

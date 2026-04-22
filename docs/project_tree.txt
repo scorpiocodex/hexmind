@@ -1,0 +1,83 @@
+.
+claude
+    ├── settings.local.json
+env.example
+git
+gitignore
+Makefile
+README.md
+config.toml
+docs
+    ├── ARCHITECTURE.md
+    ├── HEXMIND_DESIGN.md
+    ├── hexmind_ui_mockup.html
+    ├── project_tree.txt
+hexmind
+    ├── __init__.py
+    ├── ai
+        ├── __init__.py
+        ├── context_builder.py
+        ├── engine.py
+        ├── parser.py
+        ├── prompts.py
+    ├── cli.py
+    ├── config.py
+    ├── constants.py
+    ├── core
+        ├── __init__.py
+        ├── agentic_loop.py
+        ├── exceptions.py
+        ├── rate_limiter.py
+        ├── session.py
+        ├── target_validator.py
+    ├── data
+        ├── logs
+            ├── .gitkeep
+        ├── wordlists
+            ├── common.txt
+    ├── db
+        ├── __init__.py
+        ├── database.py
+        ├── migrations.py
+        ├── models.py
+        ├── repository.py
+        ├── schemas.py
+    ├── recon
+        ├── __init__.py
+        ├── base_runner.py
+        ├── curl_runner.py
+        ├── dig_runner.py
+        ├── gobuster_runner.py
+        ├── nikto_runner.py
+        ├── nmap_runner.py
+        ├── orchestrator.py
+        ├── ssl_runner.py
+        ├── whatweb_runner.py
+        ├── whois_runner.py
+    ├── reports
+        ├── __init__.py
+        ├── exporter.py
+        ├── pdf_renderer.py
+        ├── templates
+            ├── report.html.j2
+            ├── report.md.j2
+            ├── report.pdf.j2
+    ├── search
+        ├── __init__.py
+        ├── cve_lookup.py
+        ├── duckduckgo.py
+    ├── ui
+        ├── __init__.py
+        ├── banner.py
+        ├── console.py
+        ├── panels.py
+        ├── spinner.py
+pyproject.toml
+requirements.txt
+setup.cfg
+tests
+    ├── __init__.py
+    ├── test_ai.py
+    ├── test_cli.py
+    ├── test_db.py
+    ├── test_runners.py

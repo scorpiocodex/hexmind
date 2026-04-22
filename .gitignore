@@ -1,0 +1,10 @@
+*.db
+*.log
+__pycache__/
+.venv/
+.env/
+venv/
+*.egg-info/
+build/
+/tmp/hexmind_*
+hexmind/data/hexmind.db
