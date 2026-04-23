@@ -1,30 +1,72 @@
 """Rich console singleton and convenience print helpers for HexMind."""
 
+from __future__ import annotations
+
 from rich.console import Console
+from rich.theme import Theme
 
-console: Console = Console(highlight=False)
+from hexmind.constants import (
+    COLOR_CYAN,
+    COLOR_DIM,
+    COLOR_GREEN,
+    COLOR_ORANGE,
+    COLOR_PURPLE,
+    COLOR_RED,
+    COLOR_SLATE,
+    COLOR_SOFT_GREEN,
+    COLOR_WHITE,
+    COLOR_YELLOW,
+)
 
+_THEME = Theme({
+    "hm.success": f"bold {COLOR_GREEN}",
+    "hm.info": COLOR_CYAN,
+    "hm.warning": COLOR_ORANGE,
+    "hm.error": f"bold {COLOR_RED}",
+    "hm.dim": COLOR_SLATE,
+    "hm.critical": f"bold {COLOR_RED}",
+    "hm.high": COLOR_ORANGE,
+    "hm.medium": COLOR_YELLOW,
+    "hm.low": COLOR_SOFT_GREEN,
+    "hm.ai": COLOR_PURPLE,
+    "hm.cmd": f"dim {COLOR_CYAN}",
+    "hm.title": f"bold {COLOR_WHITE}",
+})
 
-def print_info(msg: str) -> None:
-    """Print an informational message in electric cyan."""
-    console.print(f"[#00b4d8]{msg}[/#00b4d8]")
+# Module-level singleton — import this everywhere
+console: Console = Console(theme=_THEME, highlight=False)
 
 
 def print_success(msg: str) -> None:
-    """Print a success message in matrix green."""
-    console.print(f"[bold #00ff9f]{msg}[/bold #00ff9f]")
+    console.print(f"[hm.success]✓[/] {msg}")
 
 
-def print_error(msg: str) -> None:
-    """Print an error message in alert red."""
-    console.print(f"[bold #ff4444]{msg}[/bold #ff4444]")
+def print_info(msg: str) -> None:
+    console.print(f"[hm.info]ℹ[/] {msg}")
 
 
 def print_warning(msg: str) -> None:
-    """Print a warning message in amber orange."""
-    console.print(f"[bold #ff8c00]{msg}[/bold #ff8c00]")
+    console.print(f"[hm.warning]⚠[/] {msg}")
+
+
+def print_error(msg: str) -> None:
+    console.print(f"[hm.error]✗[/] {msg}")
 
 
 def print_dim(msg: str) -> None:
-    """Print a dimmed supplementary message in muted slate."""
-    console.print(f"[dim #94a3b8]{msg}[/dim #94a3b8]")
+    console.print(f"[hm.dim]{msg}[/]")
+
+
+def print_cmd(cmd: str) -> None:
+    """Print a shell command in muted style (shown when show_commands=True)."""
+    console.print(f"[hm.cmd]  $ {cmd}[/]")
+
+
+def print_ai(msg: str) -> None:
+    """Print AI-related status in purple."""
+    console.print(f"[hm.ai]⚡[/] {msg}")
+
+
+def rule(title: str = "", style: str = "steel_blue") -> None:
+    """Print a styled horizontal rule."""
+    console.rule(title, style=style)

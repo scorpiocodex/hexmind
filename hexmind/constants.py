@@ -5,7 +5,6 @@ from pathlib import Path
 HEXMIND_VERSION: str = "0.1.0"
 HEXMIND_CODENAME: str = "alpha"
 
-# Version roadmap constants (for doctor command display)
 VERSION_ROADMAP: dict[str, str] = {
     "0.1.0": "Alpha — core scaffold and database layer",
     "0.2.0": "Beta — all runners, AI engine, agentic loop",
@@ -15,28 +14,47 @@ VERSION_ROADMAP: dict[str, str] = {
     "3.0.0": "Stable Release 3 — API mode, team features, scheduling",
 }
 
-HEXMIND_DIR: Path = Path.home() / ".hexmind"
+# Filesystem paths
+HEXMIND_DIR: Path = Path("~/.hexmind").expanduser()
 DB_PATH: Path = HEXMIND_DIR / "hexmind.db"
 CONFIG_PATH: Path = HEXMIND_DIR / "config.toml"
-REPORTS_DIR: Path = Path.home() / "hexmind-reports"
+REPORTS_DIR: Path = Path("~/hexmind-reports").expanduser()
 LOGS_DIR: Path = HEXMIND_DIR / "logs"
+
 WORDLIST_PATH: Path = Path(__file__).parent / "data" / "wordlists" / "common.txt"
 
-SPINNER_FRAMES: list[str] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+# Rich color names (used in Theme definitions and style= arguments)
+COLOR_GREEN: str = "bright_green"
+COLOR_CYAN: str = "cyan"
+COLOR_RED: str = "bright_red"
+COLOR_ORANGE: str = "dark_orange"
+COLOR_YELLOW: str = "yellow"
+COLOR_SOFT_GREEN: str = "green"
+COLOR_SLATE: str = "bright_black"
+COLOR_DIM: str = "dim"
+COLOR_WHITE: str = "bright_white"
+COLOR_PURPLE: str = "medium_purple"
+COLOR_BORDER: str = "steel_blue"
 
-# Rich markup color constants
-COLOR_GREEN: str = "[bold #00ff9f]"
-COLOR_CYAN: str = "[bold #00b4d8]"
-COLOR_RED: str = "[bold #ff4444]"
-COLOR_ORANGE: str = "[bold #ff8c00]"
-COLOR_YELLOW: str = "[bold #ffd700]"
-COLOR_SOFT_GREEN: str = "[#4ade80]"
-COLOR_SLATE: str = "[#94a3b8]"
-COLOR_DIM: str = "[dim #334155]"
-COLOR_WHITE: str = "[#e2e8f0]"
-COLOR_PURPLE: str = "[bold #a78bfa]"
+# Severity → Rich color mapping (used by panels.py and CLI output)
+SEVERITY_COLORS: dict[str, str] = {
+    "critical": COLOR_RED,
+    "high": COLOR_ORANGE,
+    "medium": COLOR_YELLOW,
+    "low": COLOR_SOFT_GREEN,
+    "info": COLOR_SLATE,
+}
 
-# Tool binary names (overridable via config)
+# Severity → sort rank (lower = more critical)
+SEVERITY_RANKS: dict[str, int] = {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+    "info": 4,
+}
+
+# Tool binary names (keys match runner .name attributes)
 TOOL_BINARIES: dict[str, str] = {
     "nmap": "nmap",
     "whois": "whois",
@@ -54,43 +72,59 @@ TOOL_TIMEOUTS: dict[str, int] = {
     "whois": 30,
     "whatweb": 60,
     "nikto": 900,
-    "dig": 30,
+    "dig": 15,
     "curl": 30,
-    "gobuster": 600,
+    "gobuster": 300,
     "sslscan": 60,
 }
 
 # Scan profile configurations
 SCAN_PROFILES: dict[str, dict] = {
     "quick": {
-        "tools": ["whois", "dig", "nmap"],
         "nmap_flags": ["-T4", "-F", "--open"],
-        "nikto": False,
-        "gobuster": False,
+        "nikto_mode": None,
+        "run_gobuster": False,
+        "run_ssl": False,
         "ai_passes": 1,
+        "description": "Fast scan: nmap fast-scan + whois + dig only",
+        "est_minutes": "2–5",
     },
     "standard": {
-        "tools": ["whois", "dig", "curl", "nmap", "whatweb", "sslscan", "nikto"],
         "nmap_flags": ["-T3", "-sV", "-sC", "-O", "--open", "-p-"],
-        "nikto": True,
         "nikto_mode": "light",
-        "gobuster": False,
+        "run_gobuster": False,
+        "run_ssl": True,
         "ai_passes": 2,
+        "description": "Full scan: all tools except gobuster",
+        "est_minutes": "15–30",
     },
     "deep": {
-        "tools": ["whois", "dig", "curl", "nmap", "whatweb", "sslscan", "nikto", "gobuster"],
-        "nmap_flags": ["-T2", "-sV", "-sC", "-O", "-A", "--open", "-p-", "--script", "vuln"],
-        "nikto": True,
+        "nmap_flags": ["-T2", "-sV", "-sC", "-O", "-A", "--open",
+                       "-p-", "--script", "vuln,default"],
         "nikto_mode": "full",
-        "gobuster": True,
+        "run_gobuster": True,
+        "run_ssl": True,
         "ai_passes": 3,
+        "description": "Thorough scan: all tools, vuln scripts, dir brute-force",
+        "est_minutes": "60–120",
     },
     "stealth": {
-        "tools": ["whois", "dig", "curl", "nmap", "whatweb", "sslscan", "nikto"],
         "nmap_flags": ["-T1", "-sS", "-sV", "--open", "-p-"],
-        "nikto": True,
         "nikto_mode": "light",
-        "gobuster": False,
+        "run_gobuster": False,
+        "run_ssl": True,
         "ai_passes": 2,
+        "description": "Low-noise scan: slow timing, minimal footprint",
+        "est_minutes": "60–90",
     },
 }
+
+# Async execution tiers (tool names in run order)
+RECON_TIERS: list[list[str]] = [
+    ["whois", "dig", "curl"],
+    ["nmap", "whatweb", "sslscan"],
+    ["nikto", "gobuster"],
+]
+
+# Spinner animation frames
+SPINNER_FRAMES: list[str] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
