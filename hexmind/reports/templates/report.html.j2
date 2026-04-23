@@ -1,16 +1,635 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- placeholder — full template in Phase 8 -->
 <head>
-  <meta charset="UTF-8">
-  <title>HexMind Report — {{ scan.target }}</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HexMind Report — {{ scan.target }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #080c14;
+  --bg2:       #0c1220;
+  --bg3:       #111827;
+  --green:     #00ff9f;
+  --cyan:      #00d4ff;
+  --red:       #ff3e5e;
+  --orange:    #ff8c00;
+  --yellow:    #ffd700;
+  --text:      #cbd5e1;
+  --slate:     #64748b;
+  --border:    #1a2e47;
+  --purple:    #a78bfa;
+  --soft-green:#4ade80;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre {
+  font-family: inherit;
+  background: var(--bg3);
+  border-radius: 3px;
+}
+code { padding: 1px 5px; font-size: 12px; color: var(--cyan); }
+pre { padding: 12px 14px; overflow-x: auto; border: 1px solid var(--border); }
+pre code { background: none; padding: 0; color: var(--text); }
+
+/* ── STICKY NAV ─────────────────────────────────────────────── */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex; align-items: center; gap: 4px;
+  height: 42px;
+  overflow-x: auto;
+}
+.nav-brand {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  color: var(--green); margin-right: 16px; white-space: nowrap;
+}
+.nav a {
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--slate); padding: 4px 10px; border-radius: 3px;
+  white-space: nowrap; transition: all 0.15s;
+}
+.nav a:hover { background: rgba(0,212,255,0.08); color: var(--cyan); text-decoration: none; }
+
+/* ── HEADER ─────────────────────────────────────────────────── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 24px 16px;
+}
+.header-top { display: flex; align-items: flex-start; gap: 20px; }
+.header-logo {
+  font-size: 10px; font-weight: 700; letter-spacing: 4px;
+  color: var(--green); text-transform: uppercase;
+}
+.header-logo span { display: block; font-size: 9px; color: var(--slate); letter-spacing: 2px; margin-top: 2px; }
+.header-target {
+  font-size: 20px; font-weight: 700;
+  color: var(--text); margin: 6px 0 12px;
+}
+.header-target code { font-size: 18px; color: var(--cyan); background: none; padding: 0; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 4px; padding: 4px 12px; font-size: 10px;
+}
+.pill .pk { color: var(--slate); text-transform: uppercase; letter-spacing: 1px; }
+.pill .pv { color: var(--text); font-weight: 600; margin-left: 4px; }
+.pill.risk-critical { border-color: rgba(255,62,94,0.4); }
+.pill.risk-high     { border-color: rgba(255,140,0,0.4); }
+.pill.risk-medium   { border-color: rgba(255,215,0,0.4); }
+.pill.risk-low      { border-color: rgba(74,222,128,0.4); }
+
+/* ── MAIN LAYOUT ────────────────────────────────────────────── */
+.main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 48px; }
+section { margin-bottom: 40px; }
+.section-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 18px;
+}
+.section-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--cyan);
+  border: 1px solid rgba(0,212,255,0.3);
+  border-radius: 3px; padding: 3px 10px;
+}
+.section-line {
+  flex: 1; height: 1px;
+  background: linear-gradient(90deg, var(--border) 0%, transparent 100%);
+}
+
+/* ── RISK DIAL ──────────────────────────────────────────────── */
+.risk-grid { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+.risk-dial-wrap { position: relative; width: 140px; flex-shrink: 0; }
+.risk-dial { width: 140px; height: 140px; }
+.dial-track { fill: none; stroke: var(--border); stroke-width: 12; }
+.dial-fill  { fill: none; stroke: url(#riskGrad); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+.dial-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px; font-weight: 700; fill: var(--text);
+}
+.dial-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 2px; fill: var(--slate); text-transform: uppercase;
+}
+.sev-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.sev-chip {
+  display: flex; align-items: center; gap: 8px;
+  border-radius: 6px; padding: 10px 16px;
+  font-size: 12px; font-weight: 600;
+}
+.sev-chip .chip-count { font-size: 22px; font-weight: 700; }
+.sev-chip .chip-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; }
+
+/* ── SEVERITY COLORS ────────────────────────────────────────── */
+.sev-critical { background: rgba(255,62,94,0.12);   color: #ff3e5e; border: 1px solid rgba(255,62,94,0.2); }
+.sev-high     { background: rgba(255,140,0,0.10);   color: #ff8c00; border: 1px solid rgba(255,140,0,0.2); }
+.sev-medium   { background: rgba(255,215,0,0.08);   color: #ffd700; border: 1px solid rgba(255,215,0,0.2); }
+.sev-low      { background: rgba(74,222,128,0.08);  color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
+.sev-info     { background: rgba(148,163,184,0.08); color: #94a3b8; border: 1px solid rgba(148,163,184,0.15); }
+.sev-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 3px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; white-space: nowrap;
+}
+
+/* ── EXECUTIVE SUMMARY ──────────────────────────────────────── */
+.exec-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-left: 3px solid var(--purple);
+  border-radius: 6px; padding: 20px 24px;
+  line-height: 1.8;
+}
+
+/* ── ACCORDION CARDS ────────────────────────────────────────── */
+input[type=checkbox].accordion-toggle { display: none; }
+.accordion-content { display: none; }
+.accordion-toggle:checked ~ .accordion-content { display: block; }
+.accordion-toggle:checked ~ .accordion-label .toggle-arrow { transform: rotate(90deg); }
+
+.finding-card, .tool-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; margin-bottom: 10px; overflow: hidden;
+}
+.finding-card { border-left: 3px solid var(--slate); }
+.finding-card.sev-critical { border-left-color: #ff3e5e; }
+.finding-card.sev-high     { border-left-color: #ff8c00; }
+.finding-card.sev-medium   { border-left-color: #ffd700; }
+.finding-card.sev-low      { border-left-color: #4ade80; }
+.finding-card.sev-info     { border-left-color: #64748b; }
+
+.accordion-label {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; cursor: pointer;
+  transition: background 0.15s; user-select: none;
+}
+.accordion-label:hover { background: rgba(255,255,255,0.03); }
+.toggle-arrow {
+  color: var(--slate); font-size: 10px;
+  transition: transform 0.2s; flex-shrink: 0;
+}
+.accordion-label .card-title { flex: 1; font-weight: 600; font-size: 13px; color: var(--text); }
+.accordion-label .card-meta { font-size: 10px; color: var(--slate); }
+
+.accordion-content {
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+}
+.detail-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 640px) { .detail-grid { grid-template-columns: 1fr; } }
+.detail-item .di-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 2px;
+  color: var(--slate); margin-bottom: 4px;
+}
+.detail-item .di-val { font-size: 12px; color: var(--text); }
+.detail-section { margin-top: 14px; }
+.detail-section h4 {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 2px;
+  color: var(--cyan); margin-bottom: 8px;
+}
+.detail-section p, .detail-section ul { font-size: 12px; color: var(--text); line-height: 1.7; }
+.detail-section ul { padding-left: 18px; }
+.detail-section li { margin-bottom: 3px; }
+.cve-tag {
+  display: inline-block; margin: 2px;
+  background: rgba(167,139,250,0.12); color: var(--purple);
+  border: 1px solid rgba(167,139,250,0.25);
+  border-radius: 3px; padding: 1px 7px; font-size: 10px;
+}
+.ref-link { font-size: 11px; display: block; margin-bottom: 3px; }
+.conf-bar {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+}
+.conf-track {
+  flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.conf-fill { height: 100%; border-radius: 2px; background: var(--green); }
+
+/* ── TOOL CARDS ─────────────────────────────────────────────── */
+.tool-card-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.tool-name { font-weight: 700; font-size: 12px; color: var(--text); flex: 1; }
+.exit-ok  { color: var(--soft-green); font-size: 10px; }
+.exit-err { color: var(--red);        font-size: 10px; }
+.tool-meta { font-size: 10px; color: var(--slate); }
+.raw-output {
+  background: var(--bg); border: none; border-top: 1px solid var(--border);
+  padding: 12px 16px; font-size: 11px; max-height: 300px;
+  overflow-y: auto; white-space: pre; color: var(--text);
+}
+
+/* ── ROADMAP ────────────────────────────────────────────────── */
+.roadmap-list { list-style: none; counter-reset: roadmap; }
+.roadmap-item {
+  counter-increment: roadmap;
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 14px 16px; margin-bottom: 10px;
+}
+.roadmap-num {
+  flex-shrink: 0; width: 28px; height: 28px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: var(--cyan);
+}
+.roadmap-body { flex: 1; }
+.roadmap-title { font-weight: 600; font-size: 13px; color: var(--text); margin-bottom: 4px; }
+.roadmap-component { font-size: 10px; color: var(--slate); margin-bottom: 6px; }
+.roadmap-remed { font-size: 12px; color: var(--text); line-height: 1.6; }
+
+/* ── AI CONVERSATION ────────────────────────────────────────── */
+.msg { display: flex; gap: 12px; margin-bottom: 16px; }
+.msg-avatar {
+  width: 30px; height: 30px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+.msg-avatar.user-av { background: rgba(0,212,255,0.15); color: var(--cyan); }
+.msg-avatar.asst-av { background: rgba(167,139,250,0.15); color: var(--purple); }
+.msg-body { flex: 1; }
+.msg-header { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+.msg-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.msg-role.user { color: var(--cyan); }
+.msg-role.assistant { color: var(--purple); }
+.msg-meta { font-size: 9px; color: var(--slate); }
+.msg-content {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 0 6px 6px 6px; padding: 12px 16px;
+  font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+}
+
+/* ── FOOTER ─────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 16px 24px; text-align: center;
+  font-size: 10px; color: var(--slate);
+}
+footer span { color: var(--green); }
+
+/* ── PRINT ──────────────────────────────────────────────────── */
+@media print {
+  body { background: #fff; color: #111; }
+  .nav { display: none; }
+  .header { background: #fff; border-color: #ddd; }
+  .main { padding: 0; max-width: 100%; }
+  .finding-card, .tool-card { background: #fff; border-color: #ddd; page-break-inside: avoid; }
+  .exec-card { background: #f8f8f8; border-color: #ddd; }
+  .accordion-content { display: block !important; }
+  .accordion-toggle:checked ~ .accordion-label .toggle-arrow { transform: none; }
+  .raw-output { max-height: none; }
+  a { color: #0055aa; }
+  .risk-dial .dial-track { stroke: #ddd; }
+  .section-label { color: #0055aa; border-color: #0055aa; }
+}
+</style>
 </head>
 <body>
-  <h1>HexMind Security Report</h1>
-  <p><strong>Target:</strong> {{ scan.target }}</p>
-  <p><strong>Date:</strong> {{ generated_at }}</p>
-  <p><strong>Risk Score:</strong> {{ risk_score }}/100</p>
-  <h2>Executive Summary</h2>
-  <p>{{ executive_summary }}</p>
+
+<!-- NAV -->
+<nav class="nav">
+  <span class="nav-brand">⬡ HEXMIND</span>
+  <a href="#risk">Risk</a>
+  {% if executive_summary %}<a href="#executive">Summary</a>{% endif %}
+  <a href="#findings">Findings ({{ total_findings }})</a>
+  <a href="#tools">Tools</a>
+  <a href="#roadmap">Roadmap</a>
+  {% if include_raw and ai_conversations %}<a href="#ai-log">AI Log</a>{% endif %}
+</nav>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-top">
+    <div>
+      <div class="header-logo">HexMind <span>Security Report</span></div>
+    </div>
+  </div>
+  <div class="header-target">
+    Scan of <code>{{ scan.target }}</code>
+  </div>
+  <div class="pills">
+    <div class="pill"><span class="pk">ID</span><span class="pv">#{{ "%04d" | format(scan.id) }}</span></div>
+    <div class="pill"><span class="pk">Profile</span><span class="pv">{{ scan.profile | upper }}</span></div>
+    <div class="pill"><span class="pk">Status</span><span class="pv">{{ scan.status | upper }}</span></div>
+    <div class="pill"><span class="pk">Duration</span><span class="pv">{{ scan.duration_str }}</span></div>
+    {% if scan.started_at %}
+    <div class="pill"><span class="pk">Date</span><span class="pv">{{ scan.started_at.strftime('%Y-%m-%d') }}</span></div>
+    {% endif %}
+    {% if risk_score is not none %}
+    <div class="pill risk-{{ risk_level | lower }}">
+      <span class="pk">Risk Score</span>
+      <span class="pv">{{ risk_score }}/100 · {{ risk_level }}</span>
+    </div>
+    {% endif %}
+    <div class="pill"><span class="pk">Version</span><span class="pv">v{{ version }}</span></div>
+  </div>
+</header>
+
+<main class="main">
+
+<!-- ── RISK SCORE ──────────────────────────────────────────── -->
+<section id="risk">
+  <div class="section-header">
+    <span class="section-label">Risk Score</span>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="risk-grid">
+    <!-- SVG Dial -->
+    {% set dial_offset = (314 * (1 - risk_score / 100)) | round(1) if risk_score is not none else 314 %}
+    <div class="risk-dial-wrap">
+      <svg class="risk-dial" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="riskGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ffd700"/>
+            <stop offset="100%" stop-color="#ff3e5e"/>
+          </linearGradient>
+        </defs>
+        <circle class="dial-track" cx="60" cy="60" r="50"/>
+        <circle class="dial-fill" cx="60" cy="60" r="50"
+          stroke-dasharray="314"
+          stroke-dashoffset="{{ dial_offset }}"
+          transform="rotate(-90 60 60)"/>
+        <text class="dial-score" x="60" y="57" text-anchor="middle" dominant-baseline="middle">
+          {{ risk_score if risk_score is not none else '—' }}
+        </text>
+        <text class="dial-label" x="60" y="78" text-anchor="middle">{{ risk_level }}</text>
+      </svg>
+    </div>
+
+    <!-- Severity chips -->
+    <div class="sev-chips">
+      <div class="sev-chip sev-critical">
+        <div>
+          <div class="chip-count">{{ severity_counts.critical }}</div>
+          <div class="chip-label">Critical</div>
+        </div>
+      </div>
+      <div class="sev-chip sev-high">
+        <div>
+          <div class="chip-count">{{ severity_counts.high }}</div>
+          <div class="chip-label">High</div>
+        </div>
+      </div>
+      <div class="sev-chip sev-medium">
+        <div>
+          <div class="chip-count">{{ severity_counts.medium }}</div>
+          <div class="chip-label">Medium</div>
+        </div>
+      </div>
+      <div class="sev-chip sev-low">
+        <div>
+          <div class="chip-count">{{ severity_counts.low }}</div>
+          <div class="chip-label">Low</div>
+        </div>
+      </div>
+      <div class="sev-chip sev-info">
+        <div>
+          <div class="chip-count">{{ severity_counts.info }}</div>
+          <div class="chip-label">Info</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── EXECUTIVE SUMMARY ──────────────────────────────────── -->
+{% if executive_summary %}
+<section id="executive">
+  <div class="section-header">
+    <span class="section-label">Executive Summary</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="exec-card">{{ executive_summary }}</div>
+</section>
+{% endif %}
+
+<!-- ── FINDINGS ───────────────────────────────────────────── -->
+<section id="findings">
+  <div class="section-header">
+    <span class="section-label">Findings ({{ total_findings }})</span>
+    <div class="section-line"></div>
+  </div>
+
+  {% if total_findings == 0 %}
+  <p style="color:var(--slate);font-size:13px;">No security findings were identified during this scan.</p>
+  {% else %}
+  {% set severity_order = ['critical', 'high', 'medium', 'low', 'info'] %}
+  {% for sev in severity_order %}
+  {% for finding in findings if finding.severity == sev and not finding.false_positive %}
+  <div class="finding-card sev-{{ finding.severity }}">
+    <input type="checkbox" class="accordion-toggle" id="f{{ loop.index0 }}-{{ sev }}">
+    <label class="accordion-label" for="f{{ loop.index0 }}-{{ sev }}">
+      <span class="toggle-arrow">▶</span>
+      <span class="sev-badge sev-{{ finding.severity }}">{{ finding.severity | upper }}</span>
+      <span class="card-title">{{ finding.title }}</span>
+      <span class="card-meta">{{ (finding.confidence_score * 100) | int }}% conf</span>
+      {% if finding.cve_ids %}
+      <span class="card-meta">{{ finding.cve_ids | join(', ') }}</span>
+      {% endif %}
+    </label>
+    <div class="accordion-content">
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="di-label">Component</div>
+          <div class="di-val"><code>{{ finding.affected_component or '—' }}</code></div>
+        </div>
+        <div class="detail-item">
+          <div class="di-label">Category</div>
+          <div class="di-val">{{ finding.category }}</div>
+        </div>
+        <div class="detail-item">
+          <div class="di-label">Confidence</div>
+          <div class="di-val">
+            {{ (finding.confidence_score * 100) | int }}%
+            <div class="conf-bar">
+              <div class="conf-track">
+                <div class="conf-fill" style="width:{{ (finding.confidence_score * 100) | int }}%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% if finding.cve_ids %}
+        <div class="detail-item">
+          <div class="di-label">CVEs</div>
+          <div class="di-val">
+            {% for cve in finding.cve_ids %}
+            <span class="cve-tag">{{ cve }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if finding.description %}
+      <div class="detail-section">
+        <h4>Description</h4>
+        <p>{{ finding.description }}</p>
+      </div>
+      {% endif %}
+
+      {% if finding.exploit_notes %}
+      <div class="detail-section">
+        <h4>Exploit Notes</h4>
+        <p>{{ finding.exploit_notes }}</p>
+      </div>
+      {% endif %}
+
+      {% if finding.remediation %}
+      <div class="detail-section">
+        <h4>Remediation</h4>
+        <p>{{ finding.remediation }}</p>
+      </div>
+      {% endif %}
+
+      {% if finding.references %}
+      <div class="detail-section">
+        <h4>References</h4>
+        {% for ref in finding.references %}
+        <a class="ref-link" href="{{ ref }}" target="_blank" rel="noopener">{{ ref }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endfor %}
+  {% endif %}
+</section>
+
+<!-- ── TOOL RESULTS ───────────────────────────────────────── -->
+<section id="tools">
+  <div class="section-header">
+    <span class="section-label">Tool Results ({{ tool_results | length }})</span>
+    <div class="section-line"></div>
+  </div>
+
+  {% for tool in tool_results %}
+  <div class="tool-card">
+    <input type="checkbox" class="accordion-toggle" id="tool-{{ loop.index }}">
+    <label class="accordion-label" for="tool-{{ loop.index }}">
+      <span class="toggle-arrow">▶</span>
+      <span class="tool-name">{{ tool.tool_name | upper }}</span>
+      <span class="tool-meta">{{ tool.tool_version or '' }}</span>
+      {% if tool.exit_code == 0 %}
+      <span class="exit-ok">✓ exit 0</span>
+      {% else %}
+      <span class="exit-err">✗ exit {{ tool.exit_code }}</span>
+      {% endif %}
+      <span class="tool-meta">{{ '%.1f' | format(tool.duration_ms / 1000) if tool.duration_ms else '—' }}s</span>
+    </label>
+    <div class="accordion-content">
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="di-label">Command</div>
+          <div class="di-val"><code>{{ tool.command_run or '—' }}</code></div>
+        </div>
+        <div class="detail-item">
+          <div class="di-label">Started</div>
+          <div class="di-val">{{ tool.started_at.strftime('%Y-%m-%d %H:%M:%S') if tool.started_at else '—' }}</div>
+        </div>
+        {% if tool.error %}
+        <div class="detail-item" style="grid-column:1/-1;">
+          <div class="di-label">Error</div>
+          <div class="di-val" style="color:var(--red);">{{ tool.error }}</div>
+        </div>
+        {% endif %}
+      </div>
+      {% if include_raw and tool.raw_output %}
+      <div class="detail-section">
+        <h4>Raw Output</h4>
+        <div class="raw-output">{{ tool.raw_output[:3000] }}{% if tool.raw_output | length > 3000 %}
+... [{{ tool.raw_output | length - 3000 }} chars truncated]{% endif %}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+
+<!-- ── REMEDIATION ROADMAP ────────────────────────────────── -->
+<section id="roadmap">
+  <div class="section-header">
+    <span class="section-label">Remediation Roadmap</span>
+    <div class="section-line"></div>
+  </div>
+
+  {% set severity_order = ['critical', 'high', 'medium', 'low', 'info'] %}
+  {% set ns = namespace(n=0) %}
+  <ol class="roadmap-list">
+  {% for sev in severity_order %}
+  {% for finding in findings if not finding.false_positive and finding.severity == sev %}
+  {% set ns.n = ns.n + 1 %}
+    <li class="roadmap-item">
+      <div class="roadmap-num">{{ ns.n }}</div>
+      <div class="roadmap-body">
+        <div class="roadmap-title">
+          <span class="sev-badge sev-{{ finding.severity }}">{{ finding.severity | upper }}</span>
+          &nbsp;{{ finding.title }}
+        </div>
+        <div class="roadmap-component">{{ finding.affected_component or 'N/A' }}</div>
+        <div class="roadmap-remed">{{ finding.remediation or 'Review and address this finding manually.' }}</div>
+      </div>
+    </li>
+  {% endfor %}
+  {% endfor %}
+  {% if ns.n == 0 %}
+  <li style="color:var(--slate);padding:12px 0;">No remediation items identified.</li>
+  {% endif %}
+  </ol>
+</section>
+
+<!-- ── AI CONVERSATION LOG ────────────────────────────────── -->
+{% if include_raw and ai_conversations %}
+<section id="ai-log">
+  <div class="section-header">
+    <span class="section-label">AI Conversation Log</span>
+    <div class="section-line"></div>
+  </div>
+
+  {% for msg in ai_conversations %}
+  <div class="msg">
+    <div class="msg-avatar {{ msg.role }}-av">{{ 'U' if msg.role == 'user' else 'AI' }}</div>
+    <div class="msg-body">
+      <div class="msg-header">
+        <span class="msg-role {{ msg.role }}">{{ msg.role | title }}</span>
+        <span class="msg-meta">Pass {{ msg.loop_iteration }}</span>
+        {% if msg.created_at %}
+        <span class="msg-meta">{{ msg.created_at.strftime('%H:%M:%S') }}</span>
+        {% endif %}
+        {% if msg.token_count %}
+        <span class="msg-meta">{{ msg.token_count }} tokens</span>
+        {% endif %}
+      </div>
+      <div class="msg-content">{{ msg.content }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+</main>
+
+<footer>
+  Generated by <span>HexMind v{{ version }}</span> on {{ generated_at }}
+  &nbsp;·&nbsp; Target: <span>{{ scan.target }}</span>
+  &nbsp;·&nbsp; Scan #{{ "%04d" | format(scan.id) }}
+</footer>
+
 </body>
 </html>

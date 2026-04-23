@@ -1,20 +1,587 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- placeholder — full template in Phase 8 -->
 <head>
-  <meta charset="UTF-8">
-  <title>HexMind Report — {{ scan.target }}</title>
-  <style>
-    body { font-family: sans-serif; margin: 2cm; }
-    h1 { color: #1e3a5f; }
-  </style>
+<meta charset="UTF-8">
+<title>HexMind Report — {{ scan.target }}</title>
+<style>
+/* ── PAGE SETUP ─────────────────────────────────────────────── */
+@page {
+  size: A4;
+  margin: 2cm;
+  @bottom-center {
+    content: "HexMind Report \00B7 {{ scan.target }} \00B7 {{ generated_at[:10] }} \00B7 Page " counter(page) " of " counter(pages);
+    font-family: 'Courier New', monospace;
+    font-size: 8px;
+    color: #64748b;
+  }
+}
+
+/* ── BASE ───────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #f8fafc;
+  color: #1e293b;
+  font-family: 'Courier New', 'Lucida Console', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+a { color: #0055aa; word-break: break-all; }
+code {
+  font-family: 'Courier New', monospace;
+  background: #e2e8f0;
+  border-radius: 2px;
+  padding: 1px 4px;
+  font-size: 10px;
+  color: #0f172a;
+}
+pre {
+  font-family: 'Courier New', monospace;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  padding: 10px 12px;
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── HEADER ─────────────────────────────────────────────────── */
+.header {
+  border-bottom: 2px solid #1e3a5f;
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+}
+.header-brand {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #0f6b3c;
+  margin-bottom: 4px;
+}
+.header-target {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pill {
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 9px;
+  background: #fff;
+}
+.pill .pk { color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+.pill .pv { font-weight: 700; color: #0f172a; margin-left: 4px; }
+
+/* ── SECTION HEADERS ────────────────────────────────────────── */
+section {
+  page-break-before: always;
+  padding-top: 4px;
+}
+section:first-child { page-break-before: avoid; }
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.section-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #0055aa;
+  border: 1px solid #0055aa;
+  border-radius: 2px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: #cbd5e1;
+}
+
+/* ── RISK SCORE ─────────────────────────────────────────────── */
+.risk-grid {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.risk-dial { width: 120px; height: 120px; flex-shrink: 0; }
+.dial-track { fill: none; stroke: #cbd5e1; stroke-width: 12; }
+.dial-fill  { fill: none; stroke: url(#riskGrad); stroke-width: 12; stroke-linecap: round; }
+.dial-score { font-family: 'Courier New', monospace; font-size: 20px; font-weight: 700; fill: #0f172a; }
+.dial-label { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 2px; fill: #64748b; text-transform: uppercase; }
+.sev-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sev-chip {
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 60px;
+}
+.sev-chip .chip-count { font-size: 20px; font-weight: 700; display: block; }
+.sev-chip .chip-label { font-size: 8px; text-transform: uppercase; letter-spacing: 2px; display: block; opacity: 0.85; }
+
+/* ── SEVERITY COLORS ────────────────────────────────────────── */
+.sev-critical { background: rgba(255,62,94,0.12);   color: #c0001e; border: 1px solid rgba(255,62,94,0.35); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sev-high     { background: rgba(255,140,0,0.10);   color: #b25000; border: 1px solid rgba(255,140,0,0.35); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sev-medium   { background: rgba(255,215,0,0.12);   color: #7a6000; border: 1px solid rgba(255,215,0,0.4);  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sev-low      { background: rgba(74,222,128,0.10);  color: #166534; border: 1px solid rgba(74,222,128,0.35); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sev-info     { background: rgba(148,163,184,0.10); color: #475569; border: 1px solid rgba(148,163,184,0.3); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sev-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ── EXECUTIVE SUMMARY ──────────────────────────────────────── */
+.exec-card {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-left: 3px solid #7c3aed;
+  border-radius: 4px;
+  padding: 14px 18px;
+  line-height: 1.8;
+  color: #1e293b;
+}
+
+/* ── FINDING CARDS ──────────────────────────────────────────── */
+.finding-card {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-left: 3px solid #94a3b8;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  page-break-inside: avoid;
+}
+.finding-card.sev-critical { border-left-color: #ff3e5e; }
+.finding-card.sev-high     { border-left-color: #ff8c00; }
+.finding-card.sev-medium   { border-left-color: #c49f00; }
+.finding-card.sev-low      { border-left-color: #4ade80; }
+.finding-card.sev-info     { border-left-color: #94a3b8; }
+.finding-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.detail-item .di-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+.detail-item .di-val { font-size: 11px; color: #1e293b; }
+.detail-section { margin-top: 10px; }
+.detail-section h4 {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #0055aa;
+  margin-bottom: 5px;
+}
+.detail-section p { font-size: 11px; color: #1e293b; line-height: 1.6; }
+.detail-section ul { padding-left: 16px; }
+.detail-section li { font-size: 11px; color: #1e293b; margin-bottom: 2px; }
+.cve-tag {
+  display: inline-block;
+  margin: 1px 2px;
+  background: rgba(124,58,237,0.10);
+  color: #5b21b6;
+  border: 1px solid rgba(124,58,237,0.25);
+  border-radius: 2px;
+  padding: 0px 5px;
+  font-size: 9px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.ref-link { font-size: 10px; display: block; margin-bottom: 2px; color: #0055aa; }
+.conf-bar { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+.conf-track { flex: 1; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+.conf-fill { height: 100%; border-radius: 2px; background: #0f6b3c; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* ── TOOL RESULTS ───────────────────────────────────────────── */
+.tool-card {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  page-break-inside: avoid;
+}
+.tool-name { font-size: 12px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+.tool-meta-row { font-size: 10px; color: #64748b; margin-bottom: 8px; }
+.exit-ok  { color: #166534; font-weight: 600; }
+.exit-err { color: #991b1b; font-weight: 600; }
+.raw-output {
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 9px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #1e293b;
+  margin-top: 8px;
+}
+
+/* ── ROADMAP ────────────────────────────────────────────────── */
+.roadmap-list { list-style: none; }
+.roadmap-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  page-break-inside: avoid;
+}
+.roadmap-num {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #0055aa;
+}
+.roadmap-body { flex: 1; }
+.roadmap-title { font-weight: 600; font-size: 12px; color: #0f172a; margin-bottom: 3px; }
+.roadmap-component { font-size: 9px; color: #64748b; margin-bottom: 4px; }
+.roadmap-remed { font-size: 11px; color: #1e293b; line-height: 1.5; }
+
+/* ── AI CONVERSATION ────────────────────────────────────────── */
+.msg { margin-bottom: 14px; page-break-inside: avoid; }
+.msg-header { margin-bottom: 4px; font-size: 9px; }
+.msg-role { font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.msg-role.user { color: #0055aa; }
+.msg-role.assistant { color: #5b21b6; }
+.msg-meta { color: #64748b; margin-left: 8px; }
+.msg-content {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-left: 2px solid #e2e8f0;
+  border-radius: 0 4px 4px 4px;
+  padding: 10px 14px;
+  font-size: 11px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #1e293b;
+}
+.msg-content.user-content { border-left-color: #0055aa; }
+.msg-content.asst-content { border-left-color: #7c3aed; }
+
+/* ── FOOTER ─────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid #cbd5e1;
+  padding-top: 10px;
+  margin-top: 20px;
+  text-align: center;
+  font-size: 9px;
+  color: #64748b;
+}
+</style>
 </head>
 <body>
-  <h1>HexMind Security Report</h1>
-  <p><strong>Target:</strong> {{ scan.target }}</p>
-  <p><strong>Date:</strong> {{ generated_at }}</p>
-  <p><strong>Risk Score:</strong> {{ risk_score }}/100</p>
-  <h2>Executive Summary</h2>
-  <p>{{ executive_summary }}</p>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-brand">⬡ HexMind — Security Report</div>
+  <div class="header-target">{{ scan.target }}</div>
+  <div class="pills">
+    <div class="pill"><span class="pk">Scan ID</span><span class="pv">#{{ "%04d" | format(scan.id) }}</span></div>
+    <div class="pill"><span class="pk">Profile</span><span class="pv">{{ scan.profile | upper }}</span></div>
+    <div class="pill"><span class="pk">Status</span><span class="pv">{{ scan.status | upper }}</span></div>
+    <div class="pill"><span class="pk">Duration</span><span class="pv">{{ scan.duration_str }}</span></div>
+    {% if scan.started_at %}
+    <div class="pill"><span class="pk">Started</span><span class="pv">{{ scan.started_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
+    {% endif %}
+    {% if scan.finished_at %}
+    <div class="pill"><span class="pk">Finished</span><span class="pv">{{ scan.finished_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
+    {% endif %}
+    <div class="pill"><span class="pk">Version</span><span class="pv">v{{ version }}</span></div>
+  </div>
+</header>
+
+<!-- ── RISK SCORE ──────────────────────────────────────────── -->
+<section id="risk">
+  <div class="section-header">
+    <span class="section-label">Risk Score</span>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="risk-grid">
+    {% set dial_offset = (314 * (1 - risk_score / 100)) | round(1) if risk_score is not none else 314 %}
+    <svg class="risk-dial" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="riskGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#c49f00"/>
+          <stop offset="100%" stop-color="#c0001e"/>
+        </linearGradient>
+      </defs>
+      <circle class="dial-track" cx="60" cy="60" r="50"/>
+      <circle class="dial-fill" cx="60" cy="60" r="50"
+        stroke-dasharray="314"
+        stroke-dashoffset="{{ dial_offset }}"
+        transform="rotate(-90 60 60)"/>
+      <text class="dial-score" x="60" y="57" text-anchor="middle" dominant-baseline="middle">
+        {{ risk_score if risk_score is not none else '—' }}
+      </text>
+      <text class="dial-label" x="60" y="78" text-anchor="middle">{{ risk_level }}</text>
+    </svg>
+
+    <div class="sev-chips">
+      <div class="sev-chip sev-critical">
+        <span class="chip-count">{{ severity_counts.critical }}</span>
+        <span class="chip-label">Critical</span>
+      </div>
+      <div class="sev-chip sev-high">
+        <span class="chip-count">{{ severity_counts.high }}</span>
+        <span class="chip-label">High</span>
+      </div>
+      <div class="sev-chip sev-medium">
+        <span class="chip-count">{{ severity_counts.medium }}</span>
+        <span class="chip-label">Medium</span>
+      </div>
+      <div class="sev-chip sev-low">
+        <span class="chip-count">{{ severity_counts.low }}</span>
+        <span class="chip-label">Low</span>
+      </div>
+      <div class="sev-chip sev-info">
+        <span class="chip-count">{{ severity_counts.info }}</span>
+        <span class="chip-label">Info</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── EXECUTIVE SUMMARY ──────────────────────────────────── -->
+{% if executive_summary %}
+<section id="executive">
+  <div class="section-header">
+    <span class="section-label">Executive Summary</span>
+    <div class="section-line"></div>
+  </div>
+  <div class="exec-card">{{ executive_summary }}</div>
+</section>
+{% endif %}
+
+<!-- ── FINDINGS ───────────────────────────────────────────── -->
+<section id="findings">
+  <div class="section-header">
+    <span class="section-label">Findings ({{ total_findings }})</span>
+    <div class="section-line"></div>
+  </div>
+
+  {% if total_findings == 0 %}
+  <p style="color:#64748b;">No security findings were identified during this scan.</p>
+  {% else %}
+  {% set severity_order = ['critical', 'high', 'medium', 'low', 'info'] %}
+  {% for sev in severity_order %}
+  {% for finding in findings if finding.severity == sev and not finding.false_positive %}
+  <div class="finding-card sev-{{ finding.severity }}">
+    <div class="finding-title">
+      <span class="sev-badge sev-{{ finding.severity }}">{{ finding.severity | upper }}</span>
+      {{ finding.title }}
+      <span style="font-size:10px;color:#64748b;font-weight:400;">{{ (finding.confidence_score * 100) | int }}% conf</span>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="di-label">Component</div>
+        <div class="di-val"><code>{{ finding.affected_component or '—' }}</code></div>
+      </div>
+      <div class="detail-item">
+        <div class="di-label">Category</div>
+        <div class="di-val">{{ finding.category }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="di-label">Confidence</div>
+        <div class="di-val">
+          {{ (finding.confidence_score * 100) | int }}%
+          <div class="conf-bar">
+            <div class="conf-track">
+              <div class="conf-fill" style="width:{{ (finding.confidence_score * 100) | int }}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% if finding.cve_ids %}
+      <div class="detail-item">
+        <div class="di-label">CVEs</div>
+        <div class="di-val">
+          {% for cve in finding.cve_ids %}<span class="cve-tag">{{ cve }}</span> {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if finding.description %}
+    <div class="detail-section">
+      <h4>Description</h4>
+      <p>{{ finding.description }}</p>
+    </div>
+    {% endif %}
+
+    {% if finding.exploit_notes %}
+    <div class="detail-section">
+      <h4>Exploit Notes</h4>
+      <p>{{ finding.exploit_notes }}</p>
+    </div>
+    {% endif %}
+
+    {% if finding.remediation %}
+    <div class="detail-section">
+      <h4>Remediation</h4>
+      <p>{{ finding.remediation }}</p>
+    </div>
+    {% endif %}
+
+    {% if finding.references %}
+    <div class="detail-section">
+      <h4>References</h4>
+      {% for ref in finding.references %}
+      <a class="ref-link" href="{{ ref }}">{{ ref }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endfor %}
+  {% endif %}
+</section>
+
+<!-- ── TOOL RESULTS ───────────────────────────────────────── -->
+<section id="tools">
+  <div class="section-header">
+    <span class="section-label">Tool Results ({{ tool_results | length }})</span>
+    <div class="section-line"></div>
+  </div>
+
+  {% if tool_results %}
+  {% for tool in tool_results %}
+  <div class="tool-card">
+    <div class="tool-name">{{ tool.tool_name | upper }}
+      {% if tool.tool_version %}<span style="font-size:9px;color:#64748b;font-weight:400;"> · {{ tool.tool_version }}</span>{% endif %}
+    </div>
+    <div class="tool-meta-row">
+      Command: <code>{{ tool.command_run or '—' }}</code> &nbsp;·&nbsp;
+      Duration: {{ '%.1f' | format(tool.duration_ms / 1000) if tool.duration_ms else '—' }}s &nbsp;·&nbsp;
+      Exit: {% if tool.exit_code == 0 %}<span class="exit-ok">✓ 0</span>{% else %}<span class="exit-err">✗ {{ tool.exit_code }}</span>{% endif %}
+      {% if tool.started_at %}&nbsp;·&nbsp; Started: {{ tool.started_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}
+    </div>
+    {% if tool.error %}
+    <div style="color:#991b1b;font-size:10px;margin-bottom:6px;">Error: {{ tool.error }}</div>
+    {% endif %}
+    {% if include_raw and tool.raw_output %}
+    <div class="raw-output">{{ tool.raw_output[:3000] }}{% if tool.raw_output | length > 3000 %}
+... [{{ tool.raw_output | length - 3000 }} chars truncated]{% endif %}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <p style="color:#64748b;">No tool results recorded for this scan.</p>
+  {% endif %}
+</section>
+
+<!-- ── REMEDIATION ROADMAP ────────────────────────────────── -->
+<section id="roadmap">
+  <div class="section-header">
+    <span class="section-label">Remediation Roadmap</span>
+    <div class="section-line"></div>
+  </div>
+
+  {% set severity_order = ['critical', 'high', 'medium', 'low', 'info'] %}
+  {% set ns = namespace(n=0) %}
+  <ol class="roadmap-list">
+  {% for sev in severity_order %}
+  {% for finding in findings if not finding.false_positive and finding.severity == sev %}
+  {% set ns.n = ns.n + 1 %}
+    <li class="roadmap-item">
+      <div class="roadmap-num">{{ ns.n }}</div>
+      <div class="roadmap-body">
+        <div class="roadmap-title">
+          <span class="sev-badge sev-{{ finding.severity }}">{{ finding.severity | upper }}</span>
+          &nbsp;{{ finding.title }}
+        </div>
+        <div class="roadmap-component">{{ finding.affected_component or 'N/A' }}</div>
+        <div class="roadmap-remed">{{ finding.remediation or 'Review and address this finding manually.' }}</div>
+      </div>
+    </li>
+  {% endfor %}
+  {% endfor %}
+  {% if ns.n == 0 %}
+  <li style="color:#64748b;padding:10px 0;">No remediation items identified.</li>
+  {% endif %}
+  </ol>
+</section>
+
+<!-- ── AI CONVERSATION LOG ────────────────────────────────── -->
+{% if include_raw and ai_conversations %}
+<section id="ai-log">
+  <div class="section-header">
+    <span class="section-label">AI Conversation Log</span>
+    <div class="section-line"></div>
+  </div>
+
+  {% for msg in ai_conversations %}
+  <div class="msg">
+    <div class="msg-header">
+      <span class="msg-role {{ msg.role }}">{{ msg.role | title }}</span>
+      <span class="msg-meta">Pass {{ msg.loop_iteration }}</span>
+      {% if msg.created_at %}<span class="msg-meta">{{ msg.created_at.strftime('%H:%M:%S') }}</span>{% endif %}
+      {% if msg.token_count %}<span class="msg-meta">{{ msg.token_count }} tokens</span>{% endif %}
+    </div>
+    <div class="msg-content {{ msg.role }}-content">{{ msg.content }}</div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<footer>
+  Generated by HexMind v{{ version }} on {{ generated_at }}
+  &nbsp;·&nbsp; Target: {{ scan.target }}
+  &nbsp;·&nbsp; Scan #{{ "%04d" | format(scan.id) }}
+</footer>
+
 </body>
 </html>

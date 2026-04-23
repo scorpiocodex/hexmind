@@ -1,30 +1,167 @@
-# HexMind Security Report
-**Target:** {{ scan.target }}
-**Date:** {{ generated_at }}
-**Risk Score:** {{ risk_score }}/100
+# HexMind Security Report — {{ scan.target }}
+
+> Scan `#{{ "%04d" | format(scan.id) }}` · Profile: **{{ scan.profile | upper }}** · Status: **{{ scan.status | upper }}**
+> Generated {{ generated_at }} · HexMind v{{ version }}
+
+---
+
+## Scan Metadata
+
+| Field | Value |
+|:------|:------|
+| Scan ID | `#{{ "%04d" | format(scan.id) }}` |
+| Target | `{{ scan.target }}` |
+| Profile | {{ scan.profile | upper }} |
+| Status | {{ scan.status | upper }} |
+| Started | {{ scan.started_at.strftime('%Y-%m-%d %H:%M:%S') if scan.started_at else '—' }} |
+| Finished | {{ scan.finished_at.strftime('%Y-%m-%d %H:%M:%S') if scan.finished_at else '—' }} |
+| Duration | {{ scan.duration_str }} |
+| HexMind Version | v{{ version }} |
+
+---
+
+## Risk Score
+
+{% if risk_score is not none -%}
+{% set filled = [(risk_score / 10) | round | int, 10] | min -%}
+`{% for i in range(filled) %}█{% endfor %}{% for i in range(10 - filled) %}░{% endfor %}` **{{ risk_score }}/100 — {{ risk_level }} RISK**
+{% else -%}
+> ⚠️ Risk score not available — AI analysis was skipped or produced no output.
+{% endif %}
+
+---
+
+## Severity Summary
+
+| Severity | Count |
+|:---------|------:|
+| 🔴 Critical | {{ severity_counts.critical }} |
+| 🟠 High | {{ severity_counts.high }} |
+| 🟡 Medium | {{ severity_counts.medium }} |
+| 🟢 Low | {{ severity_counts.low }} |
+| ⚪ Info | {{ severity_counts.info }} |
+| **Total** | **{{ total_findings }}** |
+
+---
+{% if executive_summary %}
 
 ## Executive Summary
+
 {{ executive_summary }}
 
+---
+{% endif %}
+
 ## Findings
-{% for finding in findings %}
-### {{ loop.index }}. [{{ finding.severity }}] {{ finding.title }}
-- **Category:** {{ finding.category }}
-- **Component:** {{ finding.affected_component }}
-- **CVEs:** {{ finding.cve_ids | join(", ") if finding.cve_ids else "None" }}
-- **Confidence:** {{ (finding.confidence_score * 100) | int }}%
 
-{{ finding.description }}
+{% if total_findings == 0 %}
+> No security findings were identified during this scan.
 
-**Remediation:** {{ finding.remediation }}
+{% else %}
+{% set severity_order = ['critical', 'high', 'medium', 'low', 'info'] %}
+{% for sev in severity_order %}
+{% for finding in findings if finding.severity == sev and not finding.false_positive %}
+
+## [{{ finding.severity | upper }}] {{ finding.title }}
+
+| Field | Value |
+|:------|:------|
+| Component | `{{ finding.affected_component or '—' }}` |
+| Category | {{ finding.category }} |
+| CVEs | {{ finding.cve_ids | join(', ') if finding.cve_ids else '—' }} |
+| Confidence | {{ (finding.confidence_score * 100) | int }}% |
+
+### Description
+
+{{ finding.description or '_No description provided._' }}
+{% if finding.exploit_notes %}
+
+### Exploit Notes
+
+{{ finding.exploit_notes }}
+{% endif %}
+
+### Remediation
+
+{{ finding.remediation or '_No remediation guidance provided._' }}
+{% if finding.references %}
+
+### References
+
+{% for ref in finding.references -%}
+- <{{ ref }}>
+{% endfor %}
+{% endif %}
 
 ---
 {% endfor %}
-
-## Tool Output Summary
-{% for tool_name, result in tool_results.items() %}
-### {{ tool_name }}
-```
-{{ result.raw_output[:2000] if result.raw_output else "No output" }}
-```
 {% endfor %}
+{% endif %}
+
+## Tool Results Summary
+
+{% if tool_results %}
+{% for tool in tool_results %}
+
+### {{ tool.tool_name | upper }}
+
+| Field | Value |
+|:------|:------|
+| Command | `{{ tool.command_run or '—' }}` |
+| Exit Code | `{{ tool.exit_code }}` |
+| Duration | `{{ '%.1f' | format(tool.duration_ms / 1000) if tool.duration_ms else '—' }}s` |
+| Version | {{ tool.tool_version or '—' }} |
+{% if tool.error %}| Error | ⚠ {{ tool.error }} |{% endif %}
+
+{% if include_raw and tool.raw_output %}
+<details>
+<summary>Raw Output</summary>
+
+```
+{{ tool.raw_output[:3000] }}{% if tool.raw_output | length > 3000 %}
+... [{{ tool.raw_output | length - 3000 }} additional characters truncated]{% endif %}
+```
+
+</details>
+{% endif %}
+{% endfor %}
+{% else %}
+> No tool results recorded for this scan.
+{% endif %}
+
+---
+
+## Remediation Roadmap
+
+Priority-ordered remediation items, most critical first.
+
+{% set severity_order = ['critical', 'high', 'medium', 'low', 'info'] %}
+{% set ns = namespace(n=0) %}
+{% for sev in severity_order %}
+{% for finding in findings if not finding.false_positive and finding.severity == sev %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **[{{ finding.severity | upper }}] {{ finding.title }}**
+   *Affected:* `{{ finding.affected_component or 'N/A' }}`
+   {{ finding.remediation or 'Review and address this finding manually.' }}
+
+{% endfor %}
+{% endfor %}
+{% if ns.n == 0 %}
+> No remediation items identified.
+{% endif %}
+
+---
+{% if include_raw and ai_conversations %}
+
+## Appendix — AI Conversation Log
+
+{% for msg in ai_conversations %}
+### {{ msg.role | title }} · Pass {{ msg.loop_iteration }}{% if msg.created_at %} · {{ msg.created_at.strftime('%H:%M:%S') }}{% endif %}{% if msg.token_count %} · {{ msg.token_count }} tokens{% endif %}
+
+{{ msg.content }}
+
+---
+{% endfor %}
+{% endif %}
+
+_Generated by HexMind v{{ version }} on {{ generated_at }}_
