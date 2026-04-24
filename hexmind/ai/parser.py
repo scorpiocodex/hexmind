@@ -83,6 +83,7 @@ class AIParser:
         """
         severity = self._get_text(block, "severity").lower()
         title    = self._get_text(block, "title")
+        title    = title.strip().strip('"').strip("'").strip()
 
         if not severity or not title:
             return None
@@ -179,12 +180,23 @@ class AIParser:
         executive_summary = summary_blocks[0] if summary_blocks else None
 
         # ── Risk score ─────────────────────────────────────────────────────
-        risk_score: Optional[int] = None
         risk_blocks = self._extract_blocks(response, "risk_score")
+        risk_score: Optional[int] = None
         if risk_blocks:
-            m = re.search(r"\d+", risk_blocks[0])
-            if m:
-                risk_score = max(0, min(100, int(m.group())))
+            raw = risk_blocks[0].strip()
+            try:
+                import re as _re
+                clean = _re.sub(r"\([^)]*\)", "", raw).strip()
+                if "/" in clean:
+                    clean = clean.split("/")[0].strip()
+                score_float = float(_re.search(r"[\d.]+", clean).group())
+                if score_float <= 10.0:
+                    risk_score = int(round(score_float * 10))
+                else:
+                    risk_score = int(round(score_float))
+                risk_score = max(0, min(100, risk_score))
+            except (AttributeError, ValueError, TypeError):
+                pass
 
         return ParsedAIResponse(
             findings          = findings,

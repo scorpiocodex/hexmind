@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import shlex
 from dataclasses import dataclass, field
 from typing import Optional, TYPE_CHECKING
@@ -11,7 +12,7 @@ from hexmind.ai.parser          import AIParser, ParsedAIResponse, ToolRequest, 
 from hexmind.ai.context_builder import ContextBuilder
 from hexmind.db.schemas         import FindingData
 from hexmind.db.repository      import FindingRepository, AIConversationRepository
-from hexmind.constants          import TOOL_BINARIES, COLOR_PURPLE
+from hexmind.constants          import TOOL_BINARIES, COLOR_CYAN, COLOR_PURPLE
 from hexmind.ui.console         import console, print_ai, print_dim, print_warning
 
 if TYPE_CHECKING:
@@ -208,31 +209,191 @@ class AgenticLoop:
         )
         return state
 
+    def _render_finding_card(self, finding: "FindingData", n: int) -> None:
+        """Print a formatted finding card to the console."""
+        from rich.panel import Panel
+        from rich.table import Table
+        from rich import box
+        from hexmind.constants import (
+            SEVERITY_COLORS, COLOR_WHITE, COLOR_SLATE,
+            COLOR_GREEN, COLOR_RED, COLOR_ORANGE,
+        )
+
+        sev   = finding.severity.lower()
+        color = SEVERITY_COLORS.get(sev, COLOR_SLATE)
+        cves  = ", ".join(finding.cve_ids) if finding.cve_ids else "—"
+        conf  = f"{int(finding.confidence_score * 100)}%"
+
+        rows = [
+            ("Severity",    f"[bold {color}]● {finding.severity.upper()}[/]"),
+            ("Category",    finding.category or "—"),
+            ("Title",       f"[bold {COLOR_WHITE}]{finding.title}[/]"),
+            ("Description", finding.description[:200] + (
+                "..." if len(finding.description) > 200 else ""
+            )),
+            ("Component",   finding.affected_component or "—"),
+            ("CVEs",        f"[cyan]{cves}[/]" if cves != "—" else "—"),
+            ("Exploit",     (finding.exploit_notes or "—")[:150]),
+            ("Remediation", (finding.remediation or "—")[:150]),
+            ("Confidence",  f"[bold {color}]{conf}[/]"),
+        ]
+
+        table = Table(box=None, show_header=False, padding=(0, 1), expand=False)
+        table.add_column("field", style=f"dim {COLOR_SLATE}", width=14, justify="right")
+        table.add_column("value", overflow="fold")
+
+        for field, value in rows:
+            table.add_row(field, value)
+
+        border_colors = {
+            "critical": COLOR_RED,
+            "high":     COLOR_ORANGE,
+            "medium":   "yellow",
+            "low":      COLOR_GREEN,
+            "info":     COLOR_SLATE,
+        }
+        border = border_colors.get(sev, COLOR_SLATE)
+
+        console.print(Panel(
+            table,
+            title=f"[bold {color}] Finding {n} [/]",
+            title_align="left",
+            border_style=border,
+            padding=(0, 1),
+        ))
+
     async def _stream_ai_response(self, messages: list[dict]) -> str:
-        """Stream AI tokens to the terminal. Returns the full response text."""
-        full_chunks: list[str] = []
+        """Stream AI response, rendering findings as formatted cards. Returns full raw string."""
+        full_buffer:   list[str] = []
+        xml_buffer:    list[str] = []
+        finding_count  = 0
+        in_finding     = False
+        in_tool_req    = False
+        in_search_req  = False
+        in_cve_lookup  = False
+        suppress_raw   = False
 
         console.print(
             f"[{COLOR_PURPLE}]┌─ AI Analysis Stream "
-            f"────────────────────────────────────────[/]"
+            f"──────────────────────────────────────[/]"
         )
         console.print()
 
         try:
             async for chunk in self.engine.generate_stream(messages):
-                console.print(chunk, end="", highlight=False)
-                full_chunks.append(chunk)
+                full_buffer.append(chunk)
+
+                for char in chunk:
+                    xml_buffer.append(char)
+                    current = "".join(xml_buffer)
+
+                    # ── Detect opening tags ────────────────────────────────
+                    if "<finding>" in current and not in_finding:
+                        in_finding   = True
+                        suppress_raw = True
+                        xml_buffer   = list(current[current.index("<finding>"):])
+                        continue
+
+                    if "<tool_request>" in current and not in_tool_req:
+                        in_tool_req  = True
+                        suppress_raw = True
+                        xml_buffer   = list(current[current.index("<tool_request>"):])
+                        continue
+
+                    if "<search_request>" in current and not in_search_req:
+                        in_search_req = True
+                        suppress_raw  = True
+                        xml_buffer    = list(current[current.index("<search_request>"):])
+                        continue
+
+                    if "<cve_lookup>" in current and not in_cve_lookup:
+                        in_cve_lookup = True
+                        suppress_raw  = True
+                        xml_buffer    = list(current[current.index("<cve_lookup>"):])
+                        continue
+
+                    # ── Detect closing tags ────────────────────────────────
+                    if in_finding and "</finding>" in current:
+                        block = "".join(xml_buffer)
+                        finding_data = self.parser._parse_finding(
+                            block.replace("<finding>", "").replace("</finding>", "")
+                        )
+                        if finding_data:
+                            finding_count += 1
+                            console.print()
+                            self._render_finding_card(finding_data, finding_count)
+                        in_finding   = False
+                        suppress_raw = False
+                        xml_buffer   = []
+                        continue
+
+                    if in_tool_req and "</tool_request>" in current:
+                        block  = "".join(xml_buffer)
+                        tool   = self.parser._get_text(block, "tool")
+                        args   = self.parser._get_text(block, "args")
+                        reason = self.parser._get_text(block, "reason")
+                        if tool:
+                            console.print(
+                                f"  [{COLOR_PURPLE}]⚡ AI requests:[/] "
+                                f"[bold]{tool}[/] [dim]{args[:50]}[/]"
+                            )
+                            if reason:
+                                console.print(f"  [dim]  Reason: {reason[:80]}[/]")
+                        in_tool_req  = False
+                        suppress_raw = False
+                        xml_buffer   = []
+                        continue
+
+                    if in_search_req and "</search_request>" in current:
+                        block = "".join(xml_buffer)
+                        query = self.parser._get_text(block, "query")
+                        if query:
+                            console.print(
+                                f"  [{COLOR_CYAN}]🔍 AI searches:[/] "
+                                f"[dim]{query[:80]}[/]"
+                            )
+                        in_search_req = False
+                        suppress_raw  = False
+                        xml_buffer    = []
+                        continue
+
+                    if in_cve_lookup and "</cve_lookup>" in current:
+                        block  = "".join(xml_buffer)
+                        cve_id = self.parser._get_text(block, "cve_id")
+                        if cve_id:
+                            console.print(
+                                f"  [{COLOR_CYAN}]🔍 CVE lookup:[/] "
+                                f"[dim]{cve_id}[/]"
+                            )
+                        in_cve_lookup = False
+                        suppress_raw  = False
+                        xml_buffer    = []
+                        continue
+
+                    # ── Print plain text outside XML blocks ────────────────
+                    if not suppress_raw:
+                        current_buf = "".join(xml_buffer)
+                        if not current_buf.startswith("<"):
+                            # Regular text — print immediately
+                            console.print(char, end="", highlight=False)
+                            xml_buffer = []
+                        elif len(current_buf) > 20:
+                            # Too long for any of our tags — flush as-is
+                            console.print(current_buf, end="", highlight=False)
+                            xml_buffer = []
+                        # else: might still be forming a tag — keep accumulating
+
         except Exception as e:
             console.print(f"\n[bold red]Stream error: {e}[/]")
 
         console.print()
         console.print(
-            f"[{COLOR_PURPLE}]└─────────────────────────────────────"
+            f"[{COLOR_PURPLE}]└──────────────────────────────────────"
             f"────────────────────────────[/]"
         )
         console.print()
 
-        return "".join(full_chunks)
+        return "".join(full_buffer)
 
     async def _execute_tool_requests(
         self,
@@ -326,22 +487,40 @@ class AgenticLoop:
 
         return False
 
+    def _normalize_component(self, component: str) -> str:
+        """Normalize component strings for dedup comparison."""
+        c = (component or "").lower()
+        c = c.replace("httpd/", "/")
+        c = c.replace("httpd ", " ")
+        c = c.replace(" ", "")
+        return c
+
+    def _normalize_title(self, title: str) -> str:
+        """Normalize finding title for dedup comparison."""
+        import re
+        t = title.strip().strip('"').strip("'").lower()
+        t = re.sub(r"\s*\(cve-[\d-]+\)", "", t).strip()
+        t = re.sub(r"\s+", " ", t)
+        return t
+
     def _merge_findings(
         self,
         existing: list[FindingData],
         new:      list[FindingData],
     ) -> list[FindingData]:
-        """
-        Merge new findings into existing list.
-        Deduplicate by (title.lower(), component.lower()).
-        On duplicate: keep higher confidence_score.
-        """
+        """Merge new findings, deduplicating by normalized (title, component)."""
         index: dict[tuple[str, str], FindingData] = {
-            (f.title.lower(), (f.affected_component or "").lower()): f
+            (
+                self._normalize_title(f.title),
+                self._normalize_component(f.affected_component or ""),
+            ): f
             for f in existing
         }
         for f in new:
-            key = (f.title.lower(), (f.affected_component or "").lower())
+            key = (
+                self._normalize_title(f.title),
+                self._normalize_component(f.affected_component or ""),
+            )
             if key not in index or f.confidence_score > index[key].confidence_score:
                 index[key] = f
 

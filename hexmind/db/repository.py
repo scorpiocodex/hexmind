@@ -319,14 +319,28 @@ class FindingRepository:
             self.db.flush()
 
     def exists(self, scan_id: int, title: str, component: str) -> bool:
-        """Return True if a finding with the same title+component exists for this scan."""
-        return self.db.scalars(
-            select(Finding).where(
-                Finding.scan_id == scan_id,
-                Finding.title == title,
-                Finding.affected_component == component,
-            )
-        ).first() is not None
+        """Check for existing finding using normalized title comparison."""
+        import re
+        norm_title = re.sub(
+            r"\s*\(cve-[\d-]+\)", "",
+            title.strip().strip('"').strip("'"),
+            flags=re.IGNORECASE,
+        ).strip().lower()
+
+        findings = (
+            self.db.query(Finding)
+            .filter(Finding.scan_id == scan_id)
+            .all()
+        )
+        for f in findings:
+            existing_norm = re.sub(
+                r"\s*\(cve-[\d-]+\)", "",
+                (f.title or "").strip().strip('"').strip("'"),
+                flags=re.IGNORECASE,
+            ).strip().lower()
+            if existing_norm == norm_title:
+                return True
+        return False
 
 
 class AIConversationRepository:

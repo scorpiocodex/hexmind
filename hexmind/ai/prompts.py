@@ -74,7 +74,19 @@ RULES:
    of the exact CVE ID for a vulnerability, leave <cves></cves> empty \
    and describe the vulnerability class in <description> instead. \
    A missing CVE is always better than a fabricated one.
-7. On the final iteration, produce an <executive_summary> and \
+7. Match CVEs precisely to the detected service. Apache httpd and \
+   Apache Struts are DIFFERENT products. Only assign a CVE to a \
+   service if that CVE specifically affects that exact software. \
+   Never cross-assign CVEs between related but distinct products.
+8. <risk_score> must be an integer from 0 to 100. No decimals, \
+   no text, no CVSS format. \
+   CORRECT: <risk_score>65</risk_score> \
+   WRONG: <risk_score>8.5 (High)</risk_score> \
+   WRONG: <risk_score>65/100</risk_score>
+9. Finding titles must NOT be wrapped in quotation marks. \
+   CORRECT: <title>Apache 2.4.7 Directory Traversal</title> \
+   WRONG:   <title>"Apache 2.4.7 Directory Traversal"</title>
+10. On the final iteration, produce an <executive_summary> and \
    <risk_score> (0-100 integer).
 
 <executive_summary>3-paragraph summary of overall risk posture</executive_summary>
@@ -101,7 +113,10 @@ Analyze every section of the reconnaissance data above.
 
 Step 1 — Service fingerprinting:
   Identify every service, version, and technology stack component. \
-Flag any outdated or known-vulnerable versions.
+Flag any outdated or known-vulnerable versions. \
+Pay careful attention to exact product names — Apache HTTP Server \
+and Apache Struts are completely different products and must not \
+have each other's CVEs assigned to them.
 
 Step 2 — Vulnerability mapping:
   For each identified service/version, recall known CVEs and \
