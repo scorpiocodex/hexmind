@@ -68,14 +68,14 @@ TOOL_BINARIES: dict[str, str] = {
 
 # Per-tool default timeouts in seconds
 TOOL_TIMEOUTS: dict[str, int] = {
-    "nmap": 3600,
-    "whois": 30,
-    "whatweb": 60,
-    "nikto": 900,
-    "dig": 15,
-    "curl": 30,
+    "nmap":     1800,   # 30 min max — covers deep -p- scan
+    "whois":    30,
+    "whatweb":  60,
+    "nikto":    120,
+    "dig":      15,
+    "curl":     30,
     "gobuster": 300,
-    "sslscan": 60,
+    "sslscan":  60,
 }
 
 # Scan profile configurations
@@ -90,13 +90,15 @@ SCAN_PROFILES: dict[str, dict] = {
         "est_minutes": "2–5",
     },
     "standard": {
-        "nmap_flags": ["-T3", "-sV", "-sC", "-O", "--open", "-p-"],
+        # Top 1000 ports (nmap default, NO -p-)
+        # Completes in 2-5 min vs 30+ min for -p-
+        "nmap_flags": ["-T3", "-sV", "-sC", "--open"],
         "nikto_mode": "light",
         "run_gobuster": False,
         "run_ssl": True,
         "ai_passes": 2,
         "description": "Full scan: all tools except gobuster",
-        "est_minutes": "15–30",
+        "est_minutes": "10–20",
     },
     "deep": {
         "nmap_flags": ["-T3", "-sV", "-sC", "--open",
@@ -109,13 +111,14 @@ SCAN_PROFILES: dict[str, dict] = {
         "est_minutes": "60–120",
     },
     "stealth": {
-        "nmap_flags": ["-T1", "-sS", "-sV", "--open", "-p-"],
+        # Top 1000 ports, slow timing — -sT works without root
+        "nmap_flags": ["-T1", "-sT", "-sV", "--open"],
         "nikto_mode": "light",
         "run_gobuster": False,
         "run_ssl": True,
         "ai_passes": 2,
         "description": "Low-noise scan: slow timing, minimal footprint",
-        "est_minutes": "60–90",
+        "est_minutes": "30–60",
     },
 }
 

@@ -93,11 +93,9 @@ class ReconOrchestrator:
                 return tool_name, result
 
             print_dim(f"  ⠋  {tool_name:<12} running...")
-            if tool_name == "nmap":
-                nmap_timeout = 3600 if self.profile == "deep" else 600
-                result = await runner.run(self.target, flags, timeout=nmap_timeout)
-            else:
-                result = await runner.run(self.target, flags)
+            from hexmind.constants import TOOL_TIMEOUTS
+            tool_timeout = TOOL_TIMEOUTS.get(tool_name, 300)
+            result = await runner.run(self.target, flags, timeout=tool_timeout)
 
             elapsed = f"{result.duration_ms / 1000:.1f}s"
             if result.success:
@@ -224,12 +222,28 @@ class ReconOrchestrator:
         ]
 
     def _should_run_nikto(self, nmap_parsed: dict) -> bool:
-        """Return True if profile enables nikto and nmap found HTTP/HTTPS ports."""
+        """
+        Run nikto if:
+        1. Profile has nikto enabled (nikto_mode is not None)
+        2. AND either:
+           a. nmap found a web port (80/443/8080/8443/8000), OR
+           b. curl successfully got HTTP 200 (nmap may have timed out)
+        """
         if self._profile_cfg.get("nikto_mode") is None:
             return False
+
         web_ports  = {80, 443, 8080, 8443, 8000}
         open_ports = set(nmap_parsed.get("open_ports", []))
-        return bool(open_ports & web_ports) or nmap_parsed.get("has_web", False)
+        nmap_found = bool(open_ports & web_ports) or nmap_parsed.get("has_web", False)
+
+        # Fallback: check if curl found HTTP even when nmap timed out
+        curl_found  = False
+        curl_result = self._results.get("curl")
+        if curl_result and curl_result.parsed_output:
+            status     = curl_result.parsed_output.get("status_code", 0)
+            curl_found = isinstance(status, int) and 200 <= status < 500
+
+        return nmap_found or curl_found
 
     def _should_run_gobuster(self, nmap_parsed: dict) -> bool:
         """Return True if profile enables gobuster and web ports were found."""
