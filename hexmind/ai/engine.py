@@ -23,7 +23,7 @@ class OllamaEngine:
         self.model    = model
         self._client  = httpx.AsyncClient(
             timeout=httpx.Timeout(
-                connect=5.0, read=300.0, write=30.0, pool=5.0
+                connect=5.0, read=600.0, write=30.0, pool=5.0
             )
         )
 
@@ -88,7 +88,7 @@ class OllamaEngine:
                 f"{self.base_url}/api/chat",
                 json=payload,
                 timeout=httpx.Timeout(
-                    connect=5.0, read=300.0, write=30.0, pool=5.0
+                    connect=5.0, read=600.0, write=30.0, pool=5.0
                 ),
             ) as response:
                 if response.status_code != 200:

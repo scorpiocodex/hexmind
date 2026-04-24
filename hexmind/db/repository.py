@@ -324,7 +324,12 @@ class FindingRepository:
 
         def normalize(s: str) -> str:
             s = s.strip().strip('"').strip("'").lower()
-            s = re.sub(r"\s*\([^)]*\)", "", s).strip()
+            for _ in range(4):
+                prev = s
+                s = re.sub(r"\s*\([^()]*\)", "", s).strip()
+                if s == prev:
+                    break
+            s = s.replace("(", "").replace(")", "").strip()
             s = re.sub(r"apache\s+\d+[\.\d]+\s*", "apache ", s)
             s = re.sub(r"apache\s+http\s+server\s*", "apache ", s)
             s = re.sub(r"apache\s+httpd\s*", "apache ", s)
@@ -332,7 +337,7 @@ class FindingRepository:
             return s
 
         norm_title = normalize(title)
-        findings = (
+        findings   = (
             self.db.query(Finding)
             .filter(Finding.scan_id == scan_id)
             .all()

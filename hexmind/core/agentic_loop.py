@@ -490,13 +490,30 @@ class AgenticLoop:
         return c
 
     def _normalize_title(self, title: str) -> str:
-        """Normalize finding title for dedup comparison."""
+        """
+        Normalize finding title for dedup.
+        Handles nested parentheticals like (Apache/2.4.7 (Ubuntu))
+        by iterating removal and stripping orphaned paren chars.
+        """
         import re
         t = title.strip().strip('"').strip("'").lower()
-        t = re.sub(r"\s*\([^)]*\)", "", t).strip()
+
+        # Iteratively strip parenthetical groups (handles nesting)
+        for _ in range(4):
+            prev = t
+            t = re.sub(r"\s*\([^()]*\)", "", t).strip()
+            if t == prev:
+                break
+
+        # Strip any stray orphaned paren characters
+        t = t.replace("(", "").replace(")", "").strip()
+
+        # Normalize Apache product prefix variants
         t = re.sub(r"apache\s+\d+[\.\d]+\s*", "apache ", t)
         t = re.sub(r"apache\s+http\s+server\s*", "apache ", t)
         t = re.sub(r"apache\s+httpd\s*", "apache ", t)
+
+        # Collapse whitespace
         t = re.sub(r"\s+", " ", t).strip()
         return t
 

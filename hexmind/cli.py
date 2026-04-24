@@ -452,26 +452,46 @@ def compare(
             print_error(f"Scan #{scan_id_2} not found.")
             raise typer.Exit(1)
 
-        f1_titles = {f.title for f in f_repo.get_for_scan(scan_id_1)}
-        f2_titles = {f.title for f in f_repo.get_for_scan(scan_id_2)}
+        def _normalize_title(title: str) -> str:
+            import re
+            t = title.strip().strip('"').strip("'").lower()
+            for _ in range(4):
+                prev = t
+                t = re.sub(r"\s*\([^()]*\)", "", t).strip()
+                if t == prev:
+                    break
+            t = t.replace("(", "").replace(")", "").strip()
+            t = re.sub(r"apache\s+\d+[\.\d]+\s*", "apache ", t)
+            t = re.sub(r"apache\s+http\s+server\s*", "apache ", t)
+            t = re.sub(r"apache\s+httpd\s*", "apache ", t)
+            t = re.sub(r"\s+", " ", t).strip()
+            return t
 
-        new_findings = f2_titles - f1_titles
-        resolved     = f1_titles - f2_titles
-        persisted    = f1_titles & f2_titles
+        f1_findings = f_repo.get_for_scan(scan_id_1)
+        f2_findings = f_repo.get_for_scan(scan_id_2)
+
+        f1_norm = {_normalize_title(f.title): f.title for f in f1_findings}
+        f2_norm = {_normalize_title(f.title): f.title for f in f2_findings}
+
+        f1_keys       = set(f1_norm.keys())
+        f2_keys       = set(f2_norm.keys())
+        new_keys      = f2_keys - f1_keys
+        resolved_keys = f1_keys - f2_keys
+        persisted_keys = f1_keys & f2_keys
 
         print_phase_separator(f"COMPARE #{scan_id_1} → #{scan_id_2}")
 
-        console.print(f"\n[bold {COLOR_RED}]New findings[/] ({len(new_findings)}):")
-        for t in sorted(new_findings):
-            console.print(f"  [{COLOR_RED}]+[/] {t}")
+        console.print(f"\n[bold {COLOR_RED}]New findings[/] ({len(new_keys)}):")
+        for k in sorted(new_keys):
+            console.print(f"  [{COLOR_RED}]+[/] {f2_norm[k]}")
 
-        console.print(f"\n[bold {COLOR_SOFT_GREEN}]Resolved[/] ({len(resolved)}):")
-        for t in sorted(resolved):
-            console.print(f"  [{COLOR_SOFT_GREEN}]-[/] {t}")
+        console.print(f"\n[bold {COLOR_SOFT_GREEN}]Resolved[/] ({len(resolved_keys)}):")
+        for k in sorted(resolved_keys):
+            console.print(f"  [{COLOR_SOFT_GREEN}]-[/] {f1_norm[k]}")
 
-        console.print(f"\n[bold {COLOR_SLATE}]Unchanged[/] ({len(persisted)}):")
-        for t in sorted(persisted):
-            console.print(f"  [{COLOR_SLATE}]=[/] {t}")
+        console.print(f"\n[bold {COLOR_SLATE}]Unchanged[/] ({len(persisted_keys)}):")
+        for k in sorted(persisted_keys):
+            console.print(f"  [{COLOR_SLATE}]=[/] {f1_norm[k]}")
 
 
 # ── config ───────────────────────────────────────────────────────────────────

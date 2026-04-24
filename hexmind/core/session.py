@@ -232,13 +232,27 @@ class ScanSession:
         s_repo: ScanRepository    = repos["scan"]
         f_repo: FindingRepository = repos["finding"]
 
+        findings = f_repo.get_for_scan(scan_id)
+
+        # Calculate fallback risk score if AI didn't produce one
+        calculated_risk = None
+        if state.risk_score is None and findings:
+            weights = {"critical": 40, "high": 20,
+                       "medium": 8, "low": 2, "info": 0}
+            score = sum(
+                weights.get(f.severity.lower(), 0)
+                for f in findings
+                if not f.false_positive
+            )
+            calculated_risk = min(100, score)
+
+        effective_risk = state.risk_score or calculated_risk
+
         s_repo.finish(
             scan_id,
-            risk_score        = state.risk_score,
+            risk_score        = effective_risk,
             executive_summary = state.executive_summary,
         )
-
-        findings = f_repo.get_for_scan(scan_id)
         counts   = f_repo.count_by_severity(scan_id)
 
         # Print findings table

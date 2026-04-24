@@ -78,12 +78,17 @@ RULES:
    Apache Struts are DIFFERENT products. Only assign a CVE to a \
    service if that CVE specifically affects that exact software. \
    Never cross-assign CVEs between related but distinct products.
-8. CVE versions must match exactly. CVE-2021-41773 ONLY affects \
-   Apache 2.4.49 — never cite it for Apache 2.4.7, 2.4.50, or any \
-   other version. If unsure whether a CVE applies to the exact \
-   detected version, set confidence to 0.5 or lower and note the \
-   uncertainty in <description>. When in doubt: omit the CVE and \
-   describe the vulnerability class.
+8. CVE IDs are version-specific — apply them ONLY to exact \
+   affected versions: \
+   - Verify the detected version falls within the CVE's EXACT \
+     affected range before citing it. If uncertain, omit the CVE. \
+   - CVE-2021-41773 → Apache 2.4.49 ONLY. Not 2.4.7, not 2.4.50. \
+   - CVEs with very old years (pre-2010) assigned at 90%+ confidence \
+     to modern software are almost certainly hallucinations. \
+   - If you cannot name a real, verifiable CVE for a finding, leave \
+     <cves></cves> empty. A finding without a CVE is correct. \
+     A finding with a fabricated CVE is harmful. \
+   - Never invent CVE IDs to fill the field. If unsure, leave empty.
 9. <risk_score> MUST be a plain integer 0-100. No decimals. No CVSS \
    format. No text. No units. \
    CORRECT: <risk_score>65</risk_score> \

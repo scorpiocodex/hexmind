@@ -144,13 +144,19 @@ class Scan(Base):
 
     @property
     def duration_str(self) -> str:
-        """Return human-readable elapsed time in 'Xm Ys' format, or '—' if not done."""
-        secs = self.duration_seconds
-        if secs is None:
+        """Return human-readable elapsed time, or '—' if not done."""
+        if not self.started_at or not self.finished_at:
             return "—"
-        minutes = int(secs // 60)
-        seconds = int(secs % 60)
-        return f"{minutes}m {seconds}s"
+        total = (self.finished_at - self.started_at).total_seconds()
+        if total < 1:
+            return "<1s"
+        m, s = divmod(int(total), 60)
+        h, m = divmod(m, 60)
+        if h:
+            return f"{h}h {m}m {s}s"
+        if m:
+            return f"{m}m {s}s"
+        return f"{s}s"
 
     def __repr__(self) -> str:
         return f"<Scan id={self.id} target_id={self.target_id} status={self.status!r}>"

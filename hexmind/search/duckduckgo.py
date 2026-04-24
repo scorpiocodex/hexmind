@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as _html
 import re
 from dataclasses import dataclass
 
@@ -124,8 +125,8 @@ class DuckDuckGoSearch:
         if " - " in text:
             title, _, snippet = text.partition(" - ")
         else:
-            title   = text[:60]
-            snippet = text
+            title   = _html.unescape(text[:60])
+            snippet = _html.unescape(text)
         return SearchResult(
             title   = title.strip()[:100],
             url     = url,
@@ -172,8 +173,8 @@ class DuckDuckGoSearch:
         ]
 
         for i, (url, raw_title) in enumerate(links[:max_results]):
-            title   = re.sub(r"<[^>]+>", "", raw_title).strip()
-            snippet = snippets[i] if i < len(snippets) else ""
+            title   = _html.unescape(re.sub(r"<[^>]+>", "", raw_title).strip())
+            snippet = _html.unescape(snippets[i] if i < len(snippets) else "")
             if title and url:
                 results.append(SearchResult(
                     title   = title[:100],
