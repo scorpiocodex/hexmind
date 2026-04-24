@@ -6,12 +6,12 @@ HEXMIND_VERSION: str = "0.1.0"
 HEXMIND_CODENAME: str = "alpha"
 
 VERSION_ROADMAP: dict[str, str] = {
-    "0.1.0": "Alpha — core scaffold and database layer",
-    "0.2.0": "Beta — all runners, AI engine, agentic loop",
-    "0.3.0": "RC — reports, search, integration tested",
-    "1.0.0": "Stable Release 1 — production ready",
-    "2.0.0": "Stable Release 2 — nuclei, batch scanning, plugins",
-    "3.0.0": "Stable Release 3 — API mode, team features, scheduling",
+    "0.1.0": "Alpha — 8 runners, agentic AI loop, reports, CVE search",
+    "0.2.0": "Beta — nuclei, subfinder, batch scanning, plugin system",
+    "0.3.0": "RC — full test suite, performance tuning, hardening",
+    "1.0.0": "Stable Release 1 — production ready, pip installable",
+    "2.0.0": "Stable Release 2 — REST API, team features, scheduling",
+    "3.0.0": "Stable Release 3 — cloud sync, custom AI models, GUI",
 }
 
 # Filesystem paths
@@ -86,7 +86,7 @@ SCAN_PROFILES: dict[str, dict] = {
         "run_gobuster": False,
         "run_ssl": False,
         "ai_passes": 1,
-        "description": "Fast scan: nmap fast-scan + whois + dig only",
+        "description": "Fast scan: whois, dig, curl, nmap -F, whatweb",
         "est_minutes": "2–5",
     },
     "standard": {
@@ -105,7 +105,7 @@ SCAN_PROFILES: dict[str, dict] = {
         "run_gobuster": True,
         "run_ssl": True,
         "ai_passes": 3,
-        "description": "Thorough scan: all tools, vuln scripts, dir brute-force",
+        "description": "Thorough scan: all tools + vuln scripts + gobuster",
         "est_minutes": "60–120",
     },
     "stealth": {

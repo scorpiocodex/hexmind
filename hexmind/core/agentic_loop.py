@@ -228,19 +228,21 @@ class AgenticLoop:
             ("Severity",    f"[bold {color}]● {finding.severity.upper()}[/]"),
             ("Category",    finding.category or "—"),
             ("Title",       f"[bold {COLOR_WHITE}]{finding.title}[/]"),
-            ("Description", finding.description[:200] + (
-                "..." if len(finding.description) > 200 else ""
-            )),
+            ("Description", finding.description or "—"),
             ("Component",   finding.affected_component or "—"),
             ("CVEs",        f"[cyan]{cves}[/]" if cves != "—" else "—"),
-            ("Exploit",     (finding.exploit_notes or "—")[:150]),
-            ("Remediation", (finding.remediation or "—")[:150]),
+            ("Exploit",     finding.exploit_notes or "—"),
+            ("Remediation", finding.remediation or "—"),
             ("Confidence",  f"[bold {color}]{conf}[/]"),
         ]
 
         table = Table(box=None, show_header=False, padding=(0, 1), expand=False)
         table.add_column("field", style=f"dim {COLOR_SLATE}", width=14, justify="right")
-        table.add_column("value", overflow="fold")
+        table.add_column(
+            "value",
+            overflow="fold",
+            no_wrap=False,
+        )
 
         for field, value in rows:
             table.add_row(field, value)
@@ -263,15 +265,24 @@ class AgenticLoop:
         ))
 
     async def _stream_ai_response(self, messages: list[dict]) -> str:
-        """Stream AI response, rendering findings as formatted cards. Returns full raw string."""
-        full_buffer:   list[str] = []
-        xml_buffer:    list[str] = []
-        finding_count  = 0
-        in_finding     = False
-        in_tool_req    = False
-        in_search_req  = False
-        in_cve_lookup  = False
-        suppress_raw   = False
+        """
+        Stream AI tokens to terminal, suppressing raw XML blocks.
+        Finding cards are rendered after stream completes.
+        Returns complete raw response string.
+        """
+        from hexmind.constants import COLOR_PURPLE, COLOR_SLATE
+
+        full_buffer: list[str] = []
+        display_buffer         = ""
+        suppress               = False
+        suppress_tags = [
+            "<finding>", "<tool_request>", "<search_request>",
+            "<cve_lookup>", "<executive_summary>", "<risk_score>",
+        ]
+        close_tags = [
+            "</finding>", "</tool_request>", "</search_request>",
+            "</cve_lookup>", "</executive_summary>", "</risk_score>",
+        ]
 
         console.print(
             f"[{COLOR_PURPLE}]┌─ AI Analysis Stream "
@@ -282,110 +293,92 @@ class AgenticLoop:
         try:
             async for chunk in self.engine.generate_stream(messages):
                 full_buffer.append(chunk)
+                display_buffer += chunk
 
-                for char in chunk:
-                    xml_buffer.append(char)
-                    current = "".join(xml_buffer)
+                # Check if we just entered a suppressed XML block
+                for tag in suppress_tags:
+                    if tag in display_buffer and not suppress:
+                        before = display_buffer[:display_buffer.index(tag)]
+                        if before.strip():
+                            console.print(
+                                before, end="", highlight=False,
+                                style=f"dim {COLOR_SLATE}",
+                            )
+                        suppress = True
+                        display_buffer = display_buffer[
+                            display_buffer.index(tag):
+                        ]
+                        break
 
-                    # ── Detect opening tags ────────────────────────────────
-                    if "<finding>" in current and not in_finding:
-                        in_finding   = True
-                        suppress_raw = True
-                        xml_buffer   = list(current[current.index("<finding>"):])
-                        continue
+                # Check if we just exited a suppressed XML block
+                if suppress:
+                    for tag in close_tags:
+                        if tag in display_buffer:
+                            idx = display_buffer.index(tag) + len(tag)
+                            display_buffer = display_buffer[idx:]
+                            suppress = False
+                            break
 
-                    if "<tool_request>" in current and not in_tool_req:
-                        in_tool_req  = True
-                        suppress_raw = True
-                        xml_buffer   = list(current[current.index("<tool_request>"):])
-                        continue
-
-                    if "<search_request>" in current and not in_search_req:
-                        in_search_req = True
-                        suppress_raw  = True
-                        xml_buffer    = list(current[current.index("<search_request>"):])
-                        continue
-
-                    if "<cve_lookup>" in current and not in_cve_lookup:
-                        in_cve_lookup = True
-                        suppress_raw  = True
-                        xml_buffer    = list(current[current.index("<cve_lookup>"):])
-                        continue
-
-                    # ── Detect closing tags ────────────────────────────────
-                    if in_finding and "</finding>" in current:
-                        block = "".join(xml_buffer)
-                        finding_data = self.parser._parse_finding(
-                            block.replace("<finding>", "").replace("</finding>", "")
+                # Print non-suppressed plain text
+                if not suppress and len(display_buffer) > 20:
+                    safe           = display_buffer[:-15]
+                    display_buffer = display_buffer[-15:]
+                    if safe.strip():
+                        console.print(
+                            safe, end="", highlight=False,
+                            style=f"dim {COLOR_SLATE}",
                         )
-                        if finding_data:
-                            finding_count += 1
-                            console.print()
-                            self._render_finding_card(finding_data, finding_count)
-                        in_finding   = False
-                        suppress_raw = False
-                        xml_buffer   = []
-                        continue
-
-                    if in_tool_req and "</tool_request>" in current:
-                        block  = "".join(xml_buffer)
-                        tool   = self.parser._get_text(block, "tool").lower().strip()
-                        args   = self.parser._get_text(block, "args").strip()
-                        args   = args.replace("{target}", self.target)
-                        reason = self.parser._get_text(block, "reason").strip()
-                        if tool:
-                            console.print(
-                                f"  [{COLOR_PURPLE}]⚡ AI requests:[/] "
-                                f"[bold]{tool}[/] [dim]{args[:50]}[/]"
-                            )
-                            if reason:
-                                console.print(f"  [dim]  Reason: {reason[:80]}[/]")
-                        in_tool_req  = False
-                        suppress_raw = False
-                        xml_buffer   = []
-                        continue
-
-                    if in_search_req and "</search_request>" in current:
-                        block = "".join(xml_buffer)
-                        query = self.parser._get_text(block, "query")
-                        if query:
-                            console.print(
-                                f"  [{COLOR_CYAN}]🔍 AI searches:[/] "
-                                f"[dim]{query[:80]}[/]"
-                            )
-                        in_search_req = False
-                        suppress_raw  = False
-                        xml_buffer    = []
-                        continue
-
-                    if in_cve_lookup and "</cve_lookup>" in current:
-                        block  = "".join(xml_buffer)
-                        cve_id = self.parser._get_text(block, "cve_id")
-                        if cve_id:
-                            console.print(
-                                f"  [{COLOR_CYAN}]🔍 CVE lookup:[/] "
-                                f"[dim]{cve_id}[/]"
-                            )
-                        in_cve_lookup = False
-                        suppress_raw  = False
-                        xml_buffer    = []
-                        continue
-
-                    # ── Print plain text outside XML blocks ────────────────
-                    if not suppress_raw:
-                        current_buf = "".join(xml_buffer)
-                        if not current_buf.startswith("<"):
-                            # Regular text — print immediately
-                            console.print(char, end="", highlight=False)
-                            xml_buffer = []
-                        elif len(current_buf) > 20:
-                            # Too long for any of our tags — flush as-is
-                            console.print(current_buf, end="", highlight=False)
-                            xml_buffer = []
-                        # else: might still be forming a tag — keep accumulating
 
         except Exception as e:
             console.print(f"\n[bold red]Stream error: {e}[/]")
+
+        # Flush remaining buffer
+        if display_buffer.strip() and not suppress:
+            console.print(
+                display_buffer, end="", highlight=False,
+                style=f"dim {COLOR_SLATE}",
+            )
+
+        console.print()
+        console.print()
+
+        full_response = "".join(full_buffer)
+
+        # ── Render finding cards from fully parsed response ───────────────────
+        parsed = self.parser.parse_structured(
+            full_response, target=self.target
+        )
+
+        if parsed.findings:
+            console.print()
+            for i, finding in enumerate(parsed.findings, 1):
+                self._render_finding_card(finding, i)
+
+        # ── Show tool/search requests as compact notices ──────────────────────
+        from hexmind.constants import COLOR_CYAN
+        for req in parsed.tool_requests:
+            args_display = req.args.replace("{target}", self.target)
+            console.print(
+                f"  [{COLOR_PURPLE}]⚡ AI requests:[/] "
+                f"[bold]{req.tool}[/] "
+                f"[dim]{args_display[:60]}[/]"
+            )
+            if req.reason:
+                console.print(
+                    f"  [dim]  Reason: {req.reason[:80]}[/]"
+                )
+
+        for req in parsed.search_requests:
+            console.print(
+                f"  [{COLOR_CYAN}]🔍 AI searches:[/] "
+                f"[dim]{req.query[:80]}[/]"
+            )
+
+        for req in parsed.cve_lookups:
+            console.print(
+                f"  [{COLOR_CYAN}]🔍 CVE lookup:[/] "
+                f"[dim]{req.cve_id}[/]"
+            )
 
         console.print()
         console.print(
@@ -394,7 +387,7 @@ class AgenticLoop:
         )
         console.print()
 
-        return "".join(full_buffer)
+        return full_response
 
     async def _execute_tool_requests(
         self,

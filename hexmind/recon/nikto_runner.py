@@ -44,7 +44,7 @@ class NiktoRunner(BaseRunner):
             "-Format", "json",
             "-output", self._tmp_json,
             "-nointeractive",
-            "-maxtime", "120s",
+            "-maxtime", "120",
         ]
         cmd += tuning
         return cmd

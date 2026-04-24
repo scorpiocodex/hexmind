@@ -609,21 +609,19 @@ def doctor() -> None:
 
     # ── Reports ──────────────────────────────────────────────────────────────
     console.print(f"[bold {COLOR_CYAN}]Reports Directory[/]")
-
-    reports_dir = cfg.reports_dir
-    if reports_dir.exists():
-        report_files = sorted(reports_dir.glob("*"))
+    rdir = cfg.reports_dir
+    if rdir.exists():
+        reports = list(rdir.glob("report_scan_*"))
         console.print(
-            f"  [{COLOR_GREEN}]✓[/]  {reports_dir}"
-            f"  [{COLOR_SLATE}]({len(report_files)} file(s))[/]"
+            f"  [{COLOR_GREEN}]✓[/]  {rdir}  "
+            f"([dim]{len(reports)} report(s)[/])"
         )
-        for rf in report_files[-5:]:
-            console.print(f"    [{COLOR_SLATE}]{rf.name}[/]")
     else:
+        rdir.mkdir(parents=True, exist_ok=True)
         console.print(
-            f"  [{COLOR_SLATE}]—[/]  {reports_dir}  [dim]directory not created yet[/]"
+            f"  [{COLOR_GREEN}]✓[/]  {rdir}  "
+            f"([dim]created[/])"
         )
-
     console.print()
 
     # ── Ollama / AI ─────────────────────────────────────────────────────────
