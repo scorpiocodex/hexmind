@@ -157,6 +157,7 @@ class ScanRepository:
             self.db.scalars(
                 select(Scan)
                 .where(Scan.target_id == target_id)
+                .options(selectinload(Scan.target))
                 .order_by(Scan.started_at.desc().nullslast())
                 .limit(limit)
             )

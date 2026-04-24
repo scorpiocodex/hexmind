@@ -31,11 +31,18 @@ from hexmind.constants import (
     SEVERITY_COLORS,
     TOOL_BINARIES,
     VERSION_ROADMAP,
+    WORDLIST_PATH,
 )
 from hexmind.core.exceptions import HexMindError, ValidationError
 from hexmind.core.target_validator import TargetValidator
 from hexmind.db.database import DatabaseManager
-from hexmind.db.repository import FindingRepository, ScanRepository, TargetRepository
+from hexmind.db.repository import (
+    AIConversationRepository,
+    FindingRepository,
+    ScanRepository,
+    TargetRepository,
+    ToolResultRepository,
+)
 from hexmind.ui.banner import print_banner, print_phase_separator
 from hexmind.ui.console import (
     console,
@@ -135,7 +142,17 @@ def scan(
         print_error(str(e))
         raise typer.Exit(1)
     except KeyboardInterrupt:
-        print_warning("Scan interrupted by user.")
+        print_warning("\nScan interrupted by user (Ctrl+C).")
+        try:
+            with dm.get_db() as db:
+                s_repo = ScanRepository(db)
+                for s in s_repo.list_all(limit=5):
+                    if s.status == "running":
+                        s_repo.fail(s.id, "Interrupted by user")
+                        print_dim(f"  Scan #{s.id:04d} marked as failed.")
+                        break
+        except Exception:
+            pass
         raise typer.Exit(130)
 
 
@@ -305,21 +322,31 @@ def report(
     try:
         from hexmind.reports.exporter import ReportExporter
         cfg = get_config()
-        exporter = ReportExporter(
-            db_repos={},
-            output_dir=output.parent if output else cfg.reports_dir,
-        )
-        out_path = asyncio.run(
-            exporter.export(
-                scan_id=scan_id,
-                format=format,
-                output_path=output,
-                include_raw=not no_raw,
+        dm  = _get_db()
+        with dm.get_db() as db:
+            repos = {
+                "scan":    ScanRepository(db),
+                "tool":    ToolResultRepository(db),
+                "finding": FindingRepository(db),
+                "ai":      AIConversationRepository(db),
+                "target":  TargetRepository(db),
+            }
+            exporter = ReportExporter(
+                db_repos=repos,
+                output_dir=output.parent if output else cfg.reports_dir,
             )
-        )
+            out_path = asyncio.run(
+                exporter.export(
+                    scan_id=scan_id,
+                    format=format,
+                    output_path=output,
+                    include_raw=not no_raw,
+                )
+            )
         print_success(f"Report saved: {out_path}")
-    except NotImplementedError:
-        print_warning("Report exporter not yet implemented (Phase 8). Scaffold verified.")
+    except KeyError as e:
+        print_error(str(e))
+        raise typer.Exit(1)
     except HexMindError as e:
         print_error(str(e))
         raise typer.Exit(1)
@@ -565,6 +592,40 @@ def doctor() -> None:
     console.print(tool_table)
     console.print()
 
+    # ── Wordlist ─────────────────────────────────────────────────────────────
+    console.print(f"[bold {COLOR_CYAN}]Wordlist[/]")
+
+    if WORDLIST_PATH.exists():
+        line_count = sum(1 for ln in WORDLIST_PATH.open() if ln.strip())
+        console.print(
+            f"  [{COLOR_GREEN}]✓[/]  {WORDLIST_PATH}"
+            f"  [{COLOR_SLATE}]({line_count} paths)[/]"
+        )
+    else:
+        console.print(f"  [{COLOR_RED}]✗[/]  Wordlist missing: {WORDLIST_PATH}")
+        all_ok = False
+
+    console.print()
+
+    # ── Reports ──────────────────────────────────────────────────────────────
+    console.print(f"[bold {COLOR_CYAN}]Reports Directory[/]")
+
+    reports_dir = cfg.reports_dir
+    if reports_dir.exists():
+        report_files = sorted(reports_dir.glob("*"))
+        console.print(
+            f"  [{COLOR_GREEN}]✓[/]  {reports_dir}"
+            f"  [{COLOR_SLATE}]({len(report_files)} file(s))[/]"
+        )
+        for rf in report_files[-5:]:
+            console.print(f"    [{COLOR_SLATE}]{rf.name}[/]")
+    else:
+        console.print(
+            f"  [{COLOR_SLATE}]—[/]  {reports_dir}  [dim]directory not created yet[/]"
+        )
+
+    console.print()
+
     # ── Ollama / AI ─────────────────────────────────────────────────────────
     console.print(f"[bold {COLOR_CYAN}]AI Engine (Ollama)[/]")
 
@@ -630,6 +691,26 @@ def doctor() -> None:
         icon  = f"[bold {COLOR_GREEN}]►[/]" if is_current else f"[{COLOR_SLATE}]○[/]"
         style = f"bold {COLOR_WHITE}" if is_current else COLOR_SLATE
         console.print(f"  {icon}  [{style}]v{ver}[/]  [dim]{desc}[/]")
+
+    console.print()
+
+    # ── Scan statistics ──────────────────────────────────────────────────────
+    console.print(f"[bold {COLOR_CYAN}]Scan Statistics[/]")
+
+    try:
+        dm_stats = _get_db()
+        with dm_stats.get_db() as db:
+            s_count = len(ScanRepository(db).list_all(limit=9999))
+            t_count = len(TargetRepository(db).list_all())
+        stats_mb = dm_stats.get_db_size_mb()
+        dm_stats.close()
+        console.print(
+            f"  [{COLOR_GREEN}]✓[/]  "
+            f"{s_count} scan(s) · {t_count} unique target(s) · "
+            f"{stats_mb:.2f} MB"
+        )
+    except Exception as e:
+        console.print(f"  [{COLOR_SLATE}]—[/]  Stats unavailable: {e}")
 
     console.print()
 

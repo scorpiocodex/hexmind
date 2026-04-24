@@ -20,7 +20,7 @@ from hexmind.recon.orchestrator import ReconOrchestrator
 from hexmind.ui.console         import (
     console, print_error, print_warning, print_dim
 )
-from hexmind.ui.banner  import print_banner, print_phase_separator
+from hexmind.ui.banner  import print_phase_separator
 from hexmind.ui.panels  import render_findings_table, render_scan_complete_box
 
 
@@ -111,11 +111,9 @@ class ScanSession:
                     "ai":      ai_repo,
                 }
 
-                print_banner(
-                    target=self.target,
-                    scan_id=scan_id,
-                    profile=self.profile,
-                    model=self.cfg.ai.model if not self.no_ai else None,
+                console.print(
+                    f"  Scan ID › [cyan]#{scan_id:04d}[/]  "
+                    f"DB › [dim]{self.cfg.db_path}[/]"
                 )
 
                 # ── 3. Recon phase ────────────────────────────────────────
@@ -124,7 +122,7 @@ class ScanSession:
                 # ── 4. AI phase ───────────────────────────────────────────
                 state = AgenticLoopState(all_tool_results=tool_results)
                 if not self.no_ai:
-                    state = await self._run_ai_phase(scan_id, tool_results, repos)
+                    state = await self._run_ai_phase(scan_id, tool_results, repos, db)
 
                 # ── 5. Finalize ───────────────────────────────────────────
                 self._finalize_scan(scan_id, state, repos)
@@ -172,6 +170,7 @@ class ScanSession:
         scan_id:      int,
         tool_results: dict,
         repos:        dict,
+        db_session,
     ) -> AgenticLoopState:
         """Phases 2–4: Agentic AI analysis loop."""
         from hexmind.ai.engine         import OllamaEngine
@@ -181,6 +180,35 @@ class ScanSession:
         engine = OllamaEngine(self.cfg.ai.base_url, self.cfg.ai.model)
         try:
             await engine.check_available()
+
+            orch = ReconOrchestrator(
+                target     = self.target,
+                profile    = self.profile,
+                db_session = db_session,
+                scan_id    = scan_id,
+                console    = console,
+                verbose    = self.verbose,
+            )
+
+            loop = AgenticLoop(
+                scan_id        = scan_id,
+                target         = self.target,
+                profile        = self.profile,
+                engine         = engine,
+                orchestrator   = orch,
+                searcher       = DuckDuckGoSearch(
+                    rate_limit=self.cfg.search.ddg_rate_limit
+                ),
+                cve_lookup     = CVELookup(),
+                repos          = repos,
+                console_obj    = console,
+                max_iterations = SCAN_PROFILES[self.profile].get(
+                    "ai_passes", self.cfg.scan.max_iterations
+                ),
+            )
+
+            return await loop.execute(tool_results)
+
         except OllamaNotRunningError as e:
             print_error(str(e))
             print_warning(
@@ -188,44 +216,11 @@ class ScanSession:
                 "Re-run without --no-ai when Ollama is running."
             )
             return AgenticLoopState(all_tool_results=tool_results)
-
-        dm_ref = DatabaseManager(self.cfg.db_path)
-        dm_ref.init()
-
-        try:
-            with dm_ref.get_db() as db2:
-                orch = ReconOrchestrator(
-                    target     = self.target,
-                    profile    = self.profile,
-                    db_session = db2,
-                    scan_id    = scan_id,
-                    console    = console,
-                    verbose    = self.verbose,
-                )
-
-                loop = AgenticLoop(
-                    scan_id        = scan_id,
-                    target         = self.target,
-                    profile        = self.profile,
-                    engine         = engine,
-                    orchestrator   = orch,
-                    searcher       = DuckDuckGoSearch(
-                        rate_limit=self.cfg.search.ddg_rate_limit
-                    ),
-                    cve_lookup     = CVELookup(),
-                    repos          = repos,
-                    console_obj    = console,
-                    max_iterations = SCAN_PROFILES[self.profile].get(
-                        "ai_passes", self.cfg.scan.max_iterations
-                    ),
-                )
-
-                state = await loop.execute(tool_results)
+        except Exception as e:
+            print_error(f"AI phase error: {e}")
+            return AgenticLoopState(all_tool_results=tool_results)
         finally:
             await engine.close()
-            dm_ref.close()
-
-        return state
 
     def _finalize_scan(
         self,

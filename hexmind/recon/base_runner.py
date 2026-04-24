@@ -151,6 +151,18 @@ class BaseRunner(ABC):
             combined  = raw if raw.strip() else raw_err
             exit_code = proc.returncode or 0
 
+            if exit_code != 0 and not combined.strip():
+                return RunnerResult(
+                    tool_name=self.name,
+                    command_run=cmd_str,
+                    raw_output="",
+                    parsed_output={},
+                    exit_code=exit_code,
+                    duration_ms=elapsed,
+                    error=f"{self.name} returned exit code {exit_code} with no output",
+                    started_at=started,
+                )
+
             parsed    = {}
             parse_err = None
             try:
@@ -172,6 +184,36 @@ class BaseRunner(ABC):
                 started_at=started,
             )
 
+        except PermissionError:
+            elapsed = int((time.monotonic() - start) * 1000)
+            return RunnerResult(
+                tool_name=self.name,
+                command_run=cmd_str,
+                raw_output="",
+                parsed_output={},
+                exit_code=1,
+                duration_ms=elapsed,
+                error=(
+                    f"{self.name} requires elevated privileges — "
+                    f"re-run with sudo or use a non-privileged scan flag (e.g. -sT for nmap)"
+                ),
+                started_at=started,
+            )
+        except FileNotFoundError:
+            elapsed = int((time.monotonic() - start) * 1000)
+            return RunnerResult(
+                tool_name=self.name,
+                command_run=cmd_str,
+                raw_output="",
+                parsed_output={},
+                exit_code=-1,
+                duration_ms=elapsed,
+                error=(
+                    f"Binary '{self.binary}' not found — "
+                    f"install with: sudo apt install {self.binary}"
+                ),
+                started_at=started,
+            )
         except Exception as e:
             elapsed = int((time.monotonic() - start) * 1000)
             return RunnerResult(
