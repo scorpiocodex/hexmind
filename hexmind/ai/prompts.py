@@ -68,7 +68,13 @@ RULES:
 3. Use {target} as a placeholder for the target in tool args.
 4. Assign confidence scores honestly — 0.9+ only when evidence is \
    unambiguous.
-5. On the final iteration, produce an <executive_summary> and \
+5. Confidence scores MUST be decimal format between 0.0 and 1.0. \
+   Never use percentage format (write 0.85 not 85%).
+6. Only cite CVE IDs you are certain exist. If you are not certain \
+   of the exact CVE ID for a vulnerability, leave <cves></cves> empty \
+   and describe the vulnerability class in <description> instead. \
+   A missing CVE is always better than a fabricated one.
+7. On the final iteration, produce an <executive_summary> and \
    <risk_score> (0-100 integer).
 
 <executive_summary>3-paragraph summary of overall risk posture</executive_summary>

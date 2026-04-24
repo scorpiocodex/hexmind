@@ -240,7 +240,8 @@ class ReconOrchestrator:
             ports = p.get("open_ports", [])
             return f"{len(ports)} open ports: {ports[:5]}"
         if tool_name == "whois":
-            return f"registrar: {p.get('registrar', 'unknown')}"
+            r = p.get("registrar") or "unknown"
+            return f"registrar: {r}"
         if tool_name == "dig":
             a       = p.get("a_records", [])
             missing = p.get("missing_email_security", [])

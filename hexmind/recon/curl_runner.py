@@ -49,17 +49,19 @@ content-type: text/html; charset=UTF-8
         """
         url = target
         if not url.startswith(("http://", "https://")):
-            url = f"https://{target}"
+            url = f"http://{target}"
 
         return [
             "curl",
             "-sI",
             "-L",
+            "-k",
+            "--connect-timeout", "10",
             "--max-time", "15",
             "--max-redirs", "5",
             "--user-agent",
             "Mozilla/5.0 (compatible; HexMind/0.1 SecurityScanner)",
-            "-w", r"\n\nFINAL_URL:%{url_effective}\nHTTP_CODE:%{http_code}",
+            "-w", "\\nFINAL_URL:%{url_effective}\\nHTTP_CODE:%{http_code}",
             url,
         ]
 

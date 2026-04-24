@@ -18,8 +18,8 @@ class NmapRunner(BaseRunner):
 
     PROFILE_FLAGS: dict[str, list[str]] = {
         "quick":    ["-T4", "-F", "--open"],
-        "standard": ["-T3", "-sV", "-sC", "-O", "--open", "-p-"],
-        "deep":     ["-T2", "-sV", "-sC", "-O", "-A", "--open",
+        "standard": ["-T3", "-sV", "-sC", "--open", "-p-"],
+        "deep":     ["-T2", "-sV", "-sC", "-A", "--open",
                      "-p-", "--script", "vuln,default"],
         "stealth":  ["-T1", "-sS", "-sV", "--open", "-p-"],
     }
@@ -40,8 +40,16 @@ class NmapRunner(BaseRunner):
         if custom_args:
             profile_flags = list(custom_args)
         else:
-            profile_flags = self.PROFILE_FLAGS.get(
+            profile_flags = list(self.PROFILE_FLAGS.get(
                 profile, self.PROFILE_FLAGS["standard"]
+            ))
+
+        if profile == "stealth" and os.getuid() != 0 and "-sS" in profile_flags:
+            profile_flags = ["-sT" if f == "-sS" else f for f in profile_flags]
+            from hexmind.ui.console import print_warning
+            print_warning(
+                "Stealth profile: -sS (SYN scan) requires root. "
+                "Falling back to -sT (TCP connect). Re-run with sudo for full stealth."
             )
 
         return ["nmap"] + profile_flags + ["-oX", self._tmp_xml, target]

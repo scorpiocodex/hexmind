@@ -99,10 +99,14 @@ class AIParser:
                 if _CVE_RE.match(c.strip())
             ]
 
-        # Parse confidence score, clamp to [0.0, 1.0]
+        # Parse confidence score, clamp to [0.0, 1.0]; accept % format
         conf_str = self._get_text(block, "confidence")
         try:
-            confidence = float(conf_str)
+            conf_str = conf_str.strip()
+            if conf_str.endswith("%"):
+                confidence = float(conf_str[:-1]) / 100.0
+            else:
+                confidence = float(conf_str)
             confidence = max(0.0, min(1.0, confidence))
         except (ValueError, TypeError):
             confidence = 0.5
