@@ -353,6 +353,7 @@ class AgenticLoop:
             console.print()
             for i, finding in enumerate(parsed.findings, 1):
                 self._render_finding_card(finding, i)
+                console.print()
 
         # ── Show tool/search requests as compact notices ──────────────────────
         from hexmind.constants import COLOR_CYAN
@@ -389,6 +390,27 @@ class AgenticLoop:
 
         return full_response
 
+    def _sanitize_args(self, tool_name: str, args: list[str]) -> list[str]:
+        """Remove dangerous or tool-invalid arguments from AI-supplied arg lists."""
+        dangerous = set(';|&`$(){}[]<>')
+        sanitized = [a for a in args if not any(c in a for c in dangerous)]
+
+        if tool_name == "nikto":
+            invalid_nikto = {"-C", "-Plugins", "-evasion", "-useragent", "-config"}
+            filtered:   list[str] = []
+            skip_next = False
+            for a in sanitized:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if any(a.startswith(inv) for inv in invalid_nikto):
+                    skip_next = True  # strip the value following this flag too
+                    continue
+                filtered.append(a)
+            sanitized = filtered
+
+        return sanitized
+
     async def _execute_tool_requests(
         self,
         requests: list[ToolRequest],
@@ -416,6 +438,8 @@ class AgenticLoop:
                 custom_args = [a for a in custom_args if a != self.target]
             except ValueError:
                 custom_args = req.args.split()
+
+            custom_args = self._sanitize_args(tool_name, custom_args)
 
             key = (tool_name, req.args)
             state.executed_tool_requests.add(key)

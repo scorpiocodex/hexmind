@@ -48,6 +48,23 @@ class ParsedAIResponse:
 _CVE_RE     = re.compile(r"CVE-\d{4}-\d+", re.IGNORECASE)
 _VALID_SEVS = frozenset({"critical", "high", "medium", "low", "info"})
 
+# CVE ID → list of version strings it actually affects.
+# If the finding's component doesn't contain at least one of these,
+# the CVE is removed from the finding.
+CVE_VERSION_CONSTRAINTS: dict[str, list[str]] = {
+    "CVE-2021-41773": ["2.4.49"],
+    "CVE-2021-42013": ["2.4.49", "2.4.50"],
+    "CVE-2017-7679":  ["2.4.18", "2.4.20", "2.4.23", "2.4.25",
+                       "2.4.26", "2.4.27"],
+    "CVE-2017-9798":  ["2.4.27"],
+    "CVE-2019-0211":  ["2.4.17", "2.4.18", "2.4.19", "2.4.20",
+                       "2.4.21", "2.4.22", "2.4.23", "2.4.24",
+                       "2.4.25", "2.4.26", "2.4.27", "2.4.28",
+                       "2.4.29", "2.4.30", "2.4.31", "2.4.32",
+                       "2.4.33", "2.4.34", "2.4.35", "2.4.36",
+                       "2.4.37", "2.4.38"],
+}
+
 
 class AIParser:
     """Parses structured XML blocks from raw Ollama/Mistral AI response text.
@@ -75,6 +92,50 @@ class AIParser:
         )
         m = pattern.search(block)
         return m.group(1).strip() if m else ""
+
+    def _filter_cve_versions(self, finding: FindingData) -> FindingData:
+        """Remove CVE IDs that don't match the finding's detected component version.
+
+        Example: CVE-2021-41773 only affects Apache 2.4.49 — it is stripped if
+        the component string contains a different version (e.g. 2.4.7).
+        """
+        if not finding.cve_ids:
+            return finding
+
+        import dataclasses
+
+        component     = (finding.affected_component or "").lower()
+        filtered_cves: list[str] = []
+        removed_cves:  list[str] = []
+
+        for cve_id in finding.cve_ids:
+            constraints = CVE_VERSION_CONSTRAINTS.get(cve_id.upper())
+            if constraints is None:
+                filtered_cves.append(cve_id)
+                continue
+            if any(v in component for v in constraints):
+                filtered_cves.append(cve_id)
+            else:
+                removed_cves.append(cve_id)
+
+        if not removed_cves:
+            return finding
+
+        new_confidence  = max(0.3, finding.confidence_score - 0.2 * len(removed_cves))
+        new_description = finding.description or ""
+        if new_description:
+            removed_str      = ", ".join(removed_cves)
+            new_description += (
+                f" (Note: {removed_str} removed — "
+                f"not applicable to detected version)"
+            )
+
+        return dataclasses.replace(
+            finding,
+            cve_ids          = filtered_cves,
+            confidence_score = new_confidence,
+            description      = new_description,
+        )
 
     def _parse_finding(self, block: str) -> Optional[FindingData]:
         """Parse a <finding>...</finding> inner content into FindingData.
@@ -140,6 +201,7 @@ class AIParser:
         for block in self._extract_blocks(response, "finding"):
             f = self._parse_finding(block)
             if f is not None:
+                f = self._filter_cve_versions(f)
                 findings.append(f)
 
         # ── Tool requests ──────────────────────────────────────────────────

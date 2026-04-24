@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re as _re
+
 from rich import box
 from rich.live import Live
 from rich.panel import Panel
@@ -21,6 +23,14 @@ from hexmind.constants import (
     SEVERITY_COLORS,
 )
 from hexmind.ui.console import console
+
+def _clean_title_for_display(title: str) -> str:
+    """Strip trailing (CVE-XXXX-XXXXX) parentheticals from a finding title."""
+    return _re.sub(
+        r'\s*\(CVE-[\d-]+(?:,\s*CVE-[\d-]+)*\)\s*$',
+        '', title, flags=_re.IGNORECASE,
+    ).strip()
+
 
 _PROFILE_COLORS: dict[str, str] = {
     "deep":     COLOR_RED,
@@ -88,7 +98,7 @@ def render_findings_table(findings: list) -> Table:
             str(i),
             sev_cell,
             f.category or "—",
-            f.title,
+            _clean_title_for_display(f.title),
             cves,
             conf_cell,
         )
