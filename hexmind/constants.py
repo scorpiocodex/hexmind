@@ -68,7 +68,7 @@ TOOL_BINARIES: dict[str, str] = {
 
 # Per-tool default timeouts in seconds
 TOOL_TIMEOUTS: dict[str, int] = {
-    "nmap": 600,
+    "nmap": 3600,
     "whois": 30,
     "whatweb": 60,
     "nikto": 900,
@@ -99,7 +99,7 @@ SCAN_PROFILES: dict[str, dict] = {
         "est_minutes": "15–30",
     },
     "deep": {
-        "nmap_flags": ["-T2", "-sV", "-sC", "-O", "-A", "--open",
+        "nmap_flags": ["-T3", "-sV", "-sC", "--open",
                        "-p-", "--script", "vuln,default"],
         "nikto_mode": "full",
         "run_gobuster": True,

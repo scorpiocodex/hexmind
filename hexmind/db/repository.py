@@ -319,26 +319,26 @@ class FindingRepository:
             self.db.flush()
 
     def exists(self, scan_id: int, title: str, component: str) -> bool:
-        """Check for existing finding using normalized title comparison."""
+        """Check for existing finding using enhanced normalized title comparison."""
         import re
-        norm_title = re.sub(
-            r"\s*\(cve-[\d-]+\)", "",
-            title.strip().strip('"').strip("'"),
-            flags=re.IGNORECASE,
-        ).strip().lower()
 
+        def normalize(s: str) -> str:
+            s = s.strip().strip('"').strip("'").lower()
+            s = re.sub(r"\s*\([^)]*\)", "", s).strip()
+            s = re.sub(r"apache\s+\d+[\.\d]+\s*", "apache ", s)
+            s = re.sub(r"apache\s+http\s+server\s*", "apache ", s)
+            s = re.sub(r"apache\s+httpd\s*", "apache ", s)
+            s = re.sub(r"\s+", " ", s).strip()
+            return s
+
+        norm_title = normalize(title)
         findings = (
             self.db.query(Finding)
             .filter(Finding.scan_id == scan_id)
             .all()
         )
         for f in findings:
-            existing_norm = re.sub(
-                r"\s*\(cve-[\d-]+\)", "",
-                (f.title or "").strip().strip('"').strip("'"),
-                flags=re.IGNORECASE,
-            ).strip().lower()
-            if existing_norm == norm_title:
+            if normalize(f.title or "") == norm_title:
                 return True
         return False
 

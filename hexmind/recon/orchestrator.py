@@ -93,7 +93,11 @@ class ReconOrchestrator:
                 return tool_name, result
 
             print_dim(f"  ⠋  {tool_name:<12} running...")
-            result = await runner.run(self.target, flags)
+            if tool_name == "nmap":
+                nmap_timeout = 3600 if self.profile == "deep" else 600
+                result = await runner.run(self.target, flags, timeout=nmap_timeout)
+            else:
+                result = await runner.run(self.target, flags)
 
             elapsed = f"{result.duration_ms / 1000:.1f}s"
             if result.success:

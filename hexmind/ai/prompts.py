@@ -78,15 +78,22 @@ RULES:
    Apache Struts are DIFFERENT products. Only assign a CVE to a \
    service if that CVE specifically affects that exact software. \
    Never cross-assign CVEs between related but distinct products.
-8. <risk_score> must be an integer from 0 to 100. No decimals, \
-   no text, no CVSS format. \
+8. CVE versions must match exactly. CVE-2021-41773 ONLY affects \
+   Apache 2.4.49 — never cite it for Apache 2.4.7, 2.4.50, or any \
+   other version. If unsure whether a CVE applies to the exact \
+   detected version, set confidence to 0.5 or lower and note the \
+   uncertainty in <description>. When in doubt: omit the CVE and \
+   describe the vulnerability class.
+9. <risk_score> MUST be a plain integer 0-100. No decimals. No CVSS \
+   format. No text. No units. \
    CORRECT: <risk_score>65</risk_score> \
-   WRONG: <risk_score>8.5 (High)</risk_score> \
-   WRONG: <risk_score>65/100</risk_score>
-9. Finding titles must NOT be wrapped in quotation marks. \
+   WRONG (will be misread): <risk_score>6.5</risk_score> \
+   WRONG (will be misread): <risk_score>8.5 (High)</risk_score> \
+   If your CVSS score is 6.5, multiply by 10 and emit 65.
+10. Finding titles must NOT be wrapped in quotation marks. \
    CORRECT: <title>Apache 2.4.7 Directory Traversal</title> \
    WRONG:   <title>"Apache 2.4.7 Directory Traversal"</title>
-10. On the final iteration, produce an <executive_summary> and \
+11. On the final iteration, produce an <executive_summary> and \
    <risk_score> (0-100 integer).
 
 <executive_summary>3-paragraph summary of overall risk posture</executive_summary>

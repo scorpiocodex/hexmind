@@ -34,19 +34,18 @@ class NiktoRunner(BaseRunner):
             prefix="hexmind_nikto_", suffix=".json"
         )
         mode   = flags.get("nikto_mode", "light")
-        port   = flags.get("port", "")
+        port   = flags.get("port", "80")
         tuning = self.TUNING_MODES.get(mode, [])
 
         cmd = [
             "nikto",
             "-h", target,
+            "-p", str(port),
             "-Format", "json",
             "-output", self._tmp_json,
             "-nointeractive",
-            "-ask", "no",
+            "-maxtime", "120s",
         ]
-        if port:
-            cmd += ["-p", str(port)]
         cmd += tuning
         return cmd
 

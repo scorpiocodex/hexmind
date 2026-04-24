@@ -329,9 +329,10 @@ class AgenticLoop:
 
                     if in_tool_req and "</tool_request>" in current:
                         block  = "".join(xml_buffer)
-                        tool   = self.parser._get_text(block, "tool")
-                        args   = self.parser._get_text(block, "args")
-                        reason = self.parser._get_text(block, "reason")
+                        tool   = self.parser._get_text(block, "tool").lower().strip()
+                        args   = self.parser._get_text(block, "args").strip()
+                        args   = args.replace("{target}", self.target)
+                        reason = self.parser._get_text(block, "reason").strip()
                         if tool:
                             console.print(
                                 f"  [{COLOR_PURPLE}]⚡ AI requests:[/] "
@@ -499,8 +500,11 @@ class AgenticLoop:
         """Normalize finding title for dedup comparison."""
         import re
         t = title.strip().strip('"').strip("'").lower()
-        t = re.sub(r"\s*\(cve-[\d-]+\)", "", t).strip()
-        t = re.sub(r"\s+", " ", t)
+        t = re.sub(r"\s*\([^)]*\)", "", t).strip()
+        t = re.sub(r"apache\s+\d+[\.\d]+\s*", "apache ", t)
+        t = re.sub(r"apache\s+http\s+server\s*", "apache ", t)
+        t = re.sub(r"apache\s+httpd\s*", "apache ", t)
+        t = re.sub(r"\s+", " ", t).strip()
         return t
 
     def _merge_findings(
@@ -508,7 +512,9 @@ class AgenticLoop:
         existing: list[FindingData],
         new:      list[FindingData],
     ) -> list[FindingData]:
-        """Merge new findings, deduplicating by normalized (title, component)."""
+        """Merge findings with two-stage deduplication: exact key + fuzzy title."""
+        import difflib
+
         index: dict[tuple[str, str], FindingData] = {
             (
                 self._normalize_title(f.title),
@@ -516,12 +522,36 @@ class AgenticLoop:
             ): f
             for f in existing
         }
+
         for f in new:
             key = (
                 self._normalize_title(f.title),
                 self._normalize_component(f.affected_component or ""),
             )
-            if key not in index or f.confidence_score > index[key].confidence_score:
+
+            if key in index:
+                if f.confidence_score > index[key].confidence_score:
+                    index[key] = f
+                continue
+
+            new_norm_title     = self._normalize_title(f.title)
+            new_norm_component = self._normalize_component(f.affected_component or "")
+
+            fuzzy_match = None
+            best_ratio  = 0.82
+
+            for (ex_title, ex_comp), existing_f in index.items():
+                if ex_comp != new_norm_component and ex_comp and new_norm_component:
+                    continue
+                ratio = difflib.SequenceMatcher(None, new_norm_title, ex_title).ratio()
+                if ratio > best_ratio:
+                    best_ratio  = ratio
+                    fuzzy_match = (ex_title, ex_comp)
+
+            if fuzzy_match:
+                if f.confidence_score > index[fuzzy_match].confidence_score:
+                    index[fuzzy_match] = f
+            else:
                 index[key] = f
 
         return sorted(index.values(), key=lambda f: f.severity_rank())

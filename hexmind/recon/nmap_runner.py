@@ -19,7 +19,7 @@ class NmapRunner(BaseRunner):
     PROFILE_FLAGS: dict[str, list[str]] = {
         "quick":    ["-T4", "-F", "--open"],
         "standard": ["-T3", "-sV", "-sC", "--open", "-p-"],
-        "deep":     ["-T2", "-sV", "-sC", "-A", "--open",
+        "deep":     ["-T3", "-sV", "-sC", "--open",
                      "-p-", "--script", "vuln,default"],
         "stealth":  ["-T1", "-sS", "-sV", "--open", "-p-"],
     }
@@ -183,7 +183,7 @@ class NmapRunner(BaseRunner):
         runstats = nm_run.get("runstats") or {}
         finished = runstats.get("finished") or {}
 
-        return {
+        result = {
             "hosts":              hosts,
             "ports":              all_ports,
             "os_matches":         os_matches,
@@ -196,6 +196,56 @@ class NmapRunner(BaseRunner):
                 "summary": finished.get("@summary", ""),
             },
         }
+
+        if not result["ports"] and raw and len(raw) > 50:
+            result = self._parse_raw_fallback(raw, result)
+
+        return result
+
+    def _parse_raw_fallback(self, raw: str, base: dict) -> dict:
+        """Fallback parser for nmap text output when XML produces no ports."""
+        import re
+        port_re = re.compile(r"(\d+)/(tcp|udp)\s+open\s+(\S+)(?:\s+(.+))?")
+        ports:     list[dict] = []
+        open_nums: list[int]  = []
+
+        for line in raw.splitlines():
+            m = port_re.match(line.strip())
+            if m:
+                port_id  = int(m.group(1))
+                protocol = m.group(2)
+                svc_name = m.group(3)
+                svc_info = (m.group(4) or "").strip()
+
+                product = ""
+                version = ""
+                info_parts = svc_info.split()
+                if info_parts:
+                    product = info_parts[0]
+                    if len(info_parts) > 1:
+                        version = info_parts[1].strip("()")
+
+                ports.append({
+                    "port_id":         port_id,
+                    "protocol":        protocol,
+                    "state":           "open",
+                    "service_name":    svc_name,
+                    "service_version": version,
+                    "service_product": product,
+                    "service_extra":   svc_info,
+                    "scripts":         [],
+                })
+                open_nums.append(port_id)
+
+        if ports:
+            web_ports = {80, 443, 8080, 8443, 8000, 3000, 5000}
+            db_ports  = {3306, 5432, 1433, 27017, 6379, 9200}
+            base["ports"]      = ports
+            base["open_ports"] = open_nums
+            base["has_web"]    = bool(set(open_nums) & web_ports)
+            base["has_db"]     = bool(set(open_nums) & db_ports)
+
+        return base
 
     def _empty_result(self) -> dict:
         return {
