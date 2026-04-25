@@ -95,6 +95,8 @@ class ReconOrchestrator:
             print_dim(f"  ⠋  {tool_name:<12} running...")
             from hexmind.constants import TOOL_TIMEOUTS
             tool_timeout = TOOL_TIMEOUTS.get(tool_name, 300)
+            if tool_name == "nikto" and self.profile == "deep":
+                tool_timeout = 600
             result = await runner.run(self.target, flags, timeout=tool_timeout)
 
             elapsed = f"{result.duration_ms / 1000:.1f}s"

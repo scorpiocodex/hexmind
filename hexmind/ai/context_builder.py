@@ -114,6 +114,11 @@ class ContextBuilder:
 
         followup = (
             f"FOLLOW-UP DATA (Pass {iteration} of {max_iterations})\n\n"
+            "IMPORTANT: You already identified findings in the previous pass. "
+            "In this pass, maintain ALL previously found findings with their "
+            "full details. Only ADD new findings or IMPROVE existing ones. "
+            "Never emit a finding with empty component, exploit, or "
+            "remediation fields.\n\n"
             "━━━━ NEW TOOL RESULTS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             + new_tool_text
         )

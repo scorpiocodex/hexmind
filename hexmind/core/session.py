@@ -234,19 +234,19 @@ class ScanSession:
 
         findings = f_repo.get_for_scan(scan_id)
 
-        # Calculate fallback risk score if AI didn't produce one
-        calculated_risk = None
-        if state.risk_score is None and findings:
-            weights = {"critical": 40, "high": 20,
-                       "medium": 8, "low": 2, "info": 0}
+        # Calculate effective risk — always produces a number
+        weights = {"critical": 40, "high": 20, "medium": 8, "low": 2, "info": 0}
+        if state.risk_score is not None:
+            effective_risk = state.risk_score
+        elif findings:
             score = sum(
                 weights.get(f.severity.lower(), 0)
                 for f in findings
                 if not f.false_positive
             )
-            calculated_risk = min(100, score)
-
-        effective_risk = state.risk_score or calculated_risk
+            effective_risk = min(100, score)
+        else:
+            effective_risk = 0
 
         s_repo.finish(
             scan_id,
@@ -286,5 +286,5 @@ class ScanSession:
             scan_id    = scan_id,
             duration   = dur_str,
             findings   = counts,
-            risk_score = state.risk_score,
+            risk_score = effective_risk,
         ))

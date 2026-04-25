@@ -132,7 +132,10 @@ have each other's CVEs assigned to them.
 
 Step 2 — Vulnerability mapping:
   For each identified service/version, recall known CVEs and \
-  vulnerabilities. Produce a <finding> block for each confirmed issue.
+  vulnerabilities. Produce a <finding> block for each confirmed issue. \
+  If NIKTO FINDINGS are present in the reconnaissance data, each \
+  nikto finding MUST be converted to a <finding> block. Do not \
+  ignore nikto output.
 
 Step 3 — Attack chain analysis:
   Identify how multiple findings could be chained into a complete \
@@ -144,6 +147,17 @@ Step 4 — Data gaps:
   {iteration_instruction}
 
 Step 5 — Output:
+  CRITICAL RULE: Every <finding> you emit MUST have ALL fields \
+  populated — severity, category, title, description, component, \
+  exploit, remediation, and confidence. Never emit a finding with \
+  empty or "—" fields. If you don't have enough information for \
+  a field, write your best estimate rather than leaving it blank.
+
+  If CVE lookup results contradict your earlier analysis, maintain \
+  your original finding structure but adjust the description to \
+  reflect the new information. Do NOT reduce a finding to empty \
+  fields just because CVE data was ambiguous.
+
   Emit all <finding> blocks. Then emit any <tool_request>, \
   <search_request>, or <cve_lookup> blocks.
   {final_instruction}
@@ -371,7 +385,11 @@ def format_whatweb_for_prompt(result: dict) -> str:
 
 
 def format_nikto_for_prompt(result: dict) -> str:
-    """Format a parsed nikto result dict into a compact prompt-ready string."""
+    """Format a parsed nikto result dict into a prompt-ready string.
+
+    Findings are highlighted prominently so the AI treats them as
+    mandatory <finding> blocks, not optional context.
+    """
     if not result:
         return "  No data.\n"
     lines: list[str] = [
@@ -381,11 +399,26 @@ def format_nikto_for_prompt(result: dict) -> str:
     ]
     if result.get("server_banner"):
         lines.append(f"  Server banner: {result['server_banner']}")
-    for v in result.get("vulnerabilities", [])[:20]:
-        desc  = v.get("description", "")[:120]
-        url   = v.get("url", "")
-        osvdb = v.get("osvdb_id", "")
-        lines.append(f"  [{osvdb}] {v.get('method', 'GET')} {url}: {desc}")
+
+    vulns = result.get("vulnerabilities", [])
+    if not vulns:
+        lines.append("  No vulnerabilities detected by nikto.")
+        return _truncate("\n".join(lines))
+
+    lines.append("")
+    lines.append("  ⚠ NIKTO FINDINGS — THESE MUST BE REPORTED AS FINDINGS:")
+    for i, v in enumerate(vulns[:20], 1):
+        desc   = v.get("description", "")[:150]
+        url    = v.get("url", "")
+        osvdb  = v.get("osvdb_id", "")
+        method = v.get("method", "GET")
+        lines.append(f"  [{i}] {method} {url}")
+        if desc:
+            lines.append(f"      Description: {desc}")
+        if osvdb:
+            lines.append(f"      OSVDB: {osvdb}")
+        lines.append("")
+
     return _truncate("\n".join(lines))
 
 

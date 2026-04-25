@@ -358,7 +358,12 @@ class AgenticLoop:
         # ── Show tool/search requests as compact notices ──────────────────────
         from hexmind.constants import COLOR_CYAN
         for req in parsed.tool_requests:
-            args_display = req.args.replace("{target}", self.target)
+            try:
+                raw_args     = shlex.split(req.args.replace("{target}", self.target))
+                sanitized    = self._sanitize_args(req.tool, raw_args)
+                args_display = " ".join(sanitized)
+            except ValueError:
+                args_display = req.args.replace("{target}", self.target)
             console.print(
                 f"  [{COLOR_PURPLE}]⚡ AI requests:[/] "
                 f"[bold]{req.tool}[/] "

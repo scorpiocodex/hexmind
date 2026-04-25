@@ -71,7 +71,7 @@ TOOL_TIMEOUTS: dict[str, int] = {
     "nmap":     1800,   # 30 min max — covers deep -p- scan
     "whois":    30,
     "whatweb":  60,
-    "nikto":    120,
+    "nikto":    300,
     "dig":      15,
     "curl":     30,
     "gobuster": 300,
