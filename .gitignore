@@ -1,10 +1,172 @@
-*.db
-*.log
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
-.venv/
-.env/
-venv/
+*.py[cod]
+*$py.class
+*.so
+*.egg
 *.egg-info/
+dist/
 build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+MANIFEST
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+
+# ── pip / uv / poetry ─────────────────────────────────────────────────────────
+pip-log.txt
+pip-delete-this-directory.txt
+.pip/
+poetry.lock
+uv.lock
+.pdm.toml
+pdm.lock
+__pypackages__/
+
+# ── Testing & coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+nosetests.xml
+test-results/
+junit.xml
+
+# ── Type checkers ─────────────────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# ── IDEs & editors ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+*.sublime-project
+*.sublime-workspace
+
+# ── HexMind runtime data ──────────────────────────────────────────────────────
+# Database files (personal scan history — never commit)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Config with secrets or local paths
+.hexmind/
+~/.hexmind/
+
+# Generated reports (output artifacts — not source)
+hexmind-reports/
+reports/
+*.pdf
+# Keep report templates
+!hexmind/reports/templates/
+
+# Temporary scanner output files
 /tmp/hexmind_*
-hexmind/data/hexmind.db
+/tmp/hexmind_nmap_*
+/tmp/hexmind_nikto_*
+/tmp/hexmind_whatweb_*
+/tmp/hexmind_gobuster_*
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+hexmind.log
+hexmind_debug.log
+
+# ── Security — never commit these ─────────────────────────────────────────────
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+*.secret
+secrets.toml
+secrets.yaml
+secrets.json
+api_keys.txt
+
+# ── Wordlists — large files, install separately ───────────────────────────────
+# Comment this out if you want to commit the bundled common.txt
+# hexmind/data/wordlists/
+# Keep the small bundled wordlist, ignore large external ones
+hexmind/data/wordlists/rockyou*.txt
+hexmind/data/wordlists/directory-list-*.txt
+hexmind/data/wordlists/dirbuster/
+hexmind/data/wordlists/seclists/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# ── Packaging & distribution ──────────────────────────────────────────────────
+dist/
+build/
+*.whl
+*.tar.gz
+*.zip
+MANIFEST
+.eggs/
+
+# ── Jupyter (if used for analysis) ────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Documentation builds ──────────────────────────────────────────────────────
+docs/_build/
+docs/site/
+site/
+
+# ── Profiling ─────────────────────────────────────────────────────────────────
+*.prof
+*.lprof
+profile_output/
+
+# ── Docker (for future v2.x) ──────────────────────────────────────────────────
+.dockerignore
+docker-compose.override.yml
+
+# ── Node (if frontend added in v3.x) ──────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
