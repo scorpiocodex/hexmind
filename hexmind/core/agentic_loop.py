@@ -77,9 +77,16 @@ class AgenticLoop:
         self.parser         = AIParser()
         self.ctx_builder    = ContextBuilder(target, profile, engine)
 
-    async def execute(self, initial_tool_results: dict) -> AgenticLoopState:
+    async def execute(
+        self,
+        initial_tool_results: dict,
+        initial_findings:     list[FindingData] = [],
+    ) -> AgenticLoopState:
         """Main entry point. Runs the full agentic loop. Returns final AgenticLoopState."""
-        state = AgenticLoopState(all_tool_results=dict(initial_tool_results))
+        state = AgenticLoopState(
+            all_tool_results = dict(initial_tool_results),
+            all_findings     = list(initial_findings),
+        )
 
         for iteration in range(1, self.max_iterations + 1):
             state.iteration = iteration
