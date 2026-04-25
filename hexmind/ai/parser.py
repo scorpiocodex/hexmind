@@ -170,9 +170,23 @@ class AIParser:
         except (ValueError, TypeError):
             confidence = 0.5
 
+        _VALID_CATS = {"vulnerability", "misconfiguration", "exposure", "recon"}
+        _CAT_MAP    = {
+            "outdated":      "vulnerability",
+            "config":        "misconfiguration",
+            "configuration": "misconfiguration",
+            "information":   "exposure",
+            "disclosure":    "exposure",
+            "network":       "recon",
+            "dns":           "recon",
+        }
+        category = self._get_text(block, "category").lower().strip()
+        if category not in _VALID_CATS:
+            category = _CAT_MAP.get(category, "misconfiguration")
+
         return FindingData(
             severity           = severity,
-            category           = self._get_text(block, "category") or "recon",
+            category           = category or "misconfiguration",
             title              = title,
             description        = self._get_text(block, "description"),
             affected_component = self._get_text(block, "component"),

@@ -119,10 +119,20 @@ class ScanSession:
                 # ── 3. Recon phase ────────────────────────────────────────
                 tool_results = await self._run_recon_phase(db, scan_id, repos)
 
+                # ── 3b. Direct tool→findings bridge ──────────────────────
+                bridge_findings = self._run_tool_bridge(
+                    tool_results, target_record.value, scan_id, repos
+                )
+
                 # ── 4. AI phase ───────────────────────────────────────────
-                state = AgenticLoopState(all_tool_results=tool_results)
+                state = AgenticLoopState(
+                    all_tool_results = tool_results,
+                    all_findings     = bridge_findings,
+                )
                 if not self.no_ai:
-                    state = await self._run_ai_phase(scan_id, tool_results, repos, db)
+                    state = await self._run_ai_phase(
+                        scan_id, tool_results, repos, db, bridge_findings
+                    )
 
                 # ── 5. Finalize ───────────────────────────────────────────
                 self._finalize_scan(scan_id, state, repos)
@@ -165,12 +175,54 @@ class ScanSession:
         )
         return await orchestrator.run_all(self.target, self.profile)
 
+    def _run_tool_bridge(
+        self,
+        tool_results: dict,
+        target:       str,
+        scan_id:      int,
+        repos:        dict,
+    ) -> list:
+        """Convert deterministic tool output directly to findings (no AI)."""
+        from hexmind.core.tool_findings_bridge import (
+            nikto_to_findings, dig_to_findings, curl_to_findings,
+        )
+
+        all_bridge: list = []
+        f_repo = repos["finding"]
+
+        nikto_result = tool_results.get("nikto")
+        if nikto_result and nikto_result.parsed_output:
+            nf = nikto_to_findings(nikto_result.parsed_output, target)
+            if nf:
+                f_repo.save_batch(scan_id, nf)
+                all_bridge.extend(nf)
+                print_dim(f"  Bridge: {len(nf)} nikto findings converted directly")
+
+        dig_result = tool_results.get("dig")
+        if dig_result and dig_result.parsed_output:
+            df = dig_to_findings(dig_result.parsed_output, target)
+            if df:
+                f_repo.save_batch(scan_id, df)
+                all_bridge.extend(df)
+                print_dim(f"  Bridge: {len(df)} DNS security findings converted directly")
+
+        curl_result = tool_results.get("curl")
+        if curl_result and curl_result.parsed_output:
+            cf = curl_to_findings(curl_result.parsed_output, target)
+            if cf:
+                f_repo.save_batch(scan_id, cf)
+                all_bridge.extend(cf)
+                print_dim(f"  Bridge: {len(cf)} HTTP header findings converted directly")
+
+        return all_bridge
+
     async def _run_ai_phase(
         self,
-        scan_id:      int,
-        tool_results: dict,
-        repos:        dict,
+        scan_id:         int,
+        tool_results:    dict,
+        repos:           dict,
         db_session,
+        bridge_findings: list = [],
     ) -> AgenticLoopState:
         """Phases 2–4: Agentic AI analysis loop."""
         from hexmind.ai.engine         import OllamaEngine
@@ -207,7 +259,7 @@ class ScanSession:
                 ),
             )
 
-            return await loop.execute(tool_results)
+            return await loop.execute(tool_results, initial_findings=bridge_findings)
 
         except OllamaNotRunningError as e:
             print_error(str(e))
