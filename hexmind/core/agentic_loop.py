@@ -524,20 +524,55 @@ class AgenticLoop:
         return False
 
     def _normalize_component(self, component: str) -> str:
-        """Normalize component strings for dedup comparison."""
-        c = (component or "").lower()
-        # Bridge-style "http:hostname" / "dns:hostname" → protocol only
-        # Lookahead (?=[^\d]) ensures we don't strip "ssh:22" style port refs
-        c = re.sub(r'^(http|https|dns|email|ssh|ftp):(?=[^\d])[^\s]+', r'\1', c)
-        # Collapse httpd token so "apache httpd/2.4.7" → "apache  2.4.7"
-        c = c.replace("httpd/", " ")
-        c = c.replace("httpd ", " ")
-        # Remove spaces before applying version patterns
-        c = c.replace(" ", "")
-        # Apache with version → "apache" (covers "apache/2.4.7" and "apache2.4.7")
+        """
+        Normalize component strings for dedup comparison.
+
+        Key mappings:
+        - All web server variants → "webserver"
+          (http:host, https:host, Apache/x.x, nginx, IIS, etc.)
+        - All DNS/email variants → "dns"
+        - All SSH variants → "ssh"
+        - Database variants → "db"
+        """
+        c = (component or "").lower().strip()
+
+        if not c or c == "—" or c == "-":
+            return "unknown"
+
+        # Bridge-style protocol:hostname → strip to just protocol
+        c = re.sub(r'^(http|https|dns|email|ftp|smtp):[^\s]+', r'\1', c)
+
+        # Web server synonyms — all become "webserver"
+        web_tokens = {
+            "http", "https",
+            "apache", "nginx", "iis", "lighttpd",
+            "caddy", "tomcat", "jetty",
+        }
         c = re.sub(r'apache/[\d\.]+.*', 'apache', c)
-        c = re.sub(r'apache[\d\.]+.*', 'apache', c)
-        return c.strip()
+        c = re.sub(r'apache\s+[\d\.]+.*', 'apache', c)
+        c = re.sub(r'apache\s+http\s+server.*', 'apache', c)
+        c = re.sub(r'apache\s+httpd.*', 'apache', c)
+        c_stripped = c.replace(" ", "").replace("(ubuntu)", "") \
+                      .replace("(debian)", "").strip()
+        if any(c_stripped.startswith(t) for t in web_tokens):
+            return "webserver"
+
+        # DNS / email synonyms → "dns"
+        dns_tokens = {"dns", "email", "emailinfrastructure", "mail"}
+        if c_stripped in dns_tokens or "email" in c_stripped:
+            return "dns"
+
+        # SSH synonyms → "ssh"
+        if "ssh" in c_stripped or "openssh" in c_stripped:
+            return "ssh"
+
+        # Database synonyms → "db"
+        db_tokens = {"mysql", "postgres", "postgresql", "mongodb",
+                     "redis", "mssql", "oracle", "db"}
+        if any(d in c_stripped for d in db_tokens):
+            return "db"
+
+        return c_stripped or "unknown"
 
     def _normalize_title(self, title: str) -> str:
         """
