@@ -318,32 +318,24 @@ class FindingRepository:
             finding.false_positive = is_fp
             self.db.flush()
 
-    def exists(self, scan_id: int, title: str, component: str) -> bool:
-        """Check for existing finding using enhanced normalized title comparison."""
-        import re
+    def exists(
+        self, scan_id: int, title: str, component: str
+    ) -> bool:
+        """Check if a finding with the same normalized title already
+        exists for this scan. Uses shared normalization to match
+        across bridge findings and AI findings.
+        """
+        from hexmind.core.finding_normalizer import normalize_finding_title
 
-        def normalize(s: str) -> str:
-            s = s.strip().strip('"').strip("'").lower()
-            for _ in range(4):
-                prev = s
-                s = re.sub(r"\s*\([^()]*\)", "", s).strip()
-                if s == prev:
-                    break
-            s = s.replace("(", "").replace(")", "").strip()
-            s = re.sub(r"apache\s+\d+[\.\d]+\s*", "apache ", s)
-            s = re.sub(r"apache\s+http\s+server\s*", "apache ", s)
-            s = re.sub(r"apache\s+httpd\s*", "apache ", s)
-            s = re.sub(r"\s+", " ", s).strip()
-            return s
+        norm_title = normalize_finding_title(title)
 
-        norm_title = normalize(title)
-        findings   = (
+        findings = (
             self.db.query(Finding)
             .filter(Finding.scan_id == scan_id)
             .all()
         )
         for f in findings:
-            if normalize(f.title or "") == norm_title:
+            if normalize_finding_title(f.title or '') == norm_title:
                 return True
         return False
 

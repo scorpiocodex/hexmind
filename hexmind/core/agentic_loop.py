@@ -524,92 +524,12 @@ class AgenticLoop:
         return False
 
     def _normalize_component(self, component: str) -> str:
-        """
-        Normalize component strings for dedup comparison.
-
-        Key mappings:
-        - All web server variants → "webserver"
-          (http:host, https:host, Apache/x.x, nginx, IIS, etc.)
-        - All DNS/email variants → "dns"
-        - All SSH variants → "ssh"
-        - Database variants → "db"
-        """
-        c = (component or "").lower().strip()
-
-        if not c or c == "—" or c == "-":
-            return "unknown"
-
-        # Bridge-style protocol:hostname → strip to just protocol
-        c = re.sub(r'^(http|https|dns|email|ftp|smtp):[^\s]+', r'\1', c)
-
-        # Web server synonyms — all become "webserver"
-        web_tokens = {
-            "http", "https",
-            "apache", "nginx", "iis", "lighttpd",
-            "caddy", "tomcat", "jetty",
-        }
-        c = re.sub(r'apache/[\d\.]+.*', 'apache', c)
-        c = re.sub(r'apache\s+[\d\.]+.*', 'apache', c)
-        c = re.sub(r'apache\s+http\s+server.*', 'apache', c)
-        c = re.sub(r'apache\s+httpd.*', 'apache', c)
-        c_stripped = c.replace(" ", "").replace("(ubuntu)", "") \
-                      .replace("(debian)", "").strip()
-        if any(c_stripped.startswith(t) for t in web_tokens):
-            return "webserver"
-
-        # DNS / email synonyms → "dns"
-        dns_tokens = {"dns", "email", "emailinfrastructure", "mail"}
-        if c_stripped in dns_tokens or "email" in c_stripped:
-            return "dns"
-
-        # SSH synonyms → "ssh"
-        if "ssh" in c_stripped or "openssh" in c_stripped:
-            return "ssh"
-
-        # Database synonyms → "db"
-        db_tokens = {"mysql", "postgres", "postgresql", "mongodb",
-                     "redis", "mssql", "oracle", "db"}
-        if any(d in c_stripped for d in db_tokens):
-            return "db"
-
-        return c_stripped or "unknown"
+        from hexmind.core.finding_normalizer import normalize_component
+        return normalize_component(component)
 
     def _normalize_title(self, title: str) -> str:
-        """
-        Normalize finding title for dedup.
-        Handles nested parentheticals like (Apache/2.4.7 (Ubuntu))
-        by iterating removal and stripping orphaned paren chars.
-        """
-        import re
-        t = title.strip().strip('"').strip("'").lower()
-
-        # Iteratively strip parenthetical groups (handles nesting)
-        for _ in range(4):
-            prev = t
-            t = re.sub(r"\s*\([^()]*\)", "", t).strip()
-            if t == prev:
-                break
-
-        # Strip any stray orphaned paren characters
-        t = t.replace("(", "").replace(")", "").strip()
-
-        # Normalize Apache product prefix variants
-        t = re.sub(r"apache\s+\d+[\.\d]+\s*", "apache ", t)
-        t = re.sub(r"apache\s+http\s+server\s*", "apache ", t)
-        t = re.sub(r"apache\s+httpd\s*", "apache ", t)
-
-        # Normalize "missing X security headers" patterns across sources
-        t = re.sub(r'(apache\s+)?missing\s+(http\s+)?security\s+headers?',
-                   'missing security headers', t)
-        t = re.sub(r'missing\s+(http\s+)?security\s+headers?',
-                   'missing security headers', t)
-
-        # Strip orphaned "cve" token left after CVE ID removal
-        t = re.sub(r'\bcve\b', '', t).strip()
-
-        # Collapse whitespace
-        t = re.sub(r"\s+", " ", t).strip()
-        return t
+        from hexmind.core.finding_normalizer import normalize_finding_title
+        return normalize_finding_title(title)
 
     def _merge_findings(
         self,
