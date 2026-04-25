@@ -225,6 +225,7 @@ class AgenticLoop:
             SEVERITY_COLORS, COLOR_WHITE, COLOR_SLATE,
             COLOR_GREEN, COLOR_RED, COLOR_ORANGE,
         )
+        from hexmind.ui.panels import _clean_title_for_display
 
         sev   = finding.severity.lower()
         color = SEVERITY_COLORS.get(sev, COLOR_SLATE)
@@ -234,7 +235,7 @@ class AgenticLoop:
         rows = [
             ("Severity",    f"[bold {color}]● {finding.severity.upper()}[/]"),
             ("Category",    finding.category or "—"),
-            ("Title",       f"[bold {COLOR_WHITE}]{finding.title}[/]"),
+            ("Title",       f"[bold {COLOR_WHITE}]{_clean_title_for_display(finding.title)}[/]"),
             ("Description", finding.description or "—"),
             ("Component",   finding.affected_component or "—"),
             ("CVEs",        f"[cyan]{cves}[/]" if cves != "—" else "—"),
@@ -409,17 +410,22 @@ class AgenticLoop:
 
         if tool_name == "nikto":
             invalid_nikto = {"-C", "-Plugins", "-evasion", "-useragent", "-config"}
-            filtered:   list[str] = []
+            sanitized_nikto: list[str] = []
             skip_next = False
-            for a in sanitized:
+            for i, a in enumerate(sanitized):
                 if skip_next:
                     skip_next = False
                     continue
-                if any(a.startswith(inv) for inv in invalid_nikto):
-                    skip_next = True  # strip the value following this flag too
+                if a in invalid_nikto:
+                    skip_next = True
                     continue
-                filtered.append(a)
-            sanitized = filtered
+                if a == "-p" and i + 1 < len(sanitized):
+                    port_val = sanitized[i + 1]
+                    if "," in port_val or not port_val.isdigit():
+                        skip_next = True
+                        continue
+                sanitized_nikto.append(a)
+            sanitized = sanitized_nikto
 
         return sanitized
 
@@ -520,10 +526,18 @@ class AgenticLoop:
     def _normalize_component(self, component: str) -> str:
         """Normalize component strings for dedup comparison."""
         c = (component or "").lower()
-        c = c.replace("httpd/", "/")
+        # Bridge-style "http:hostname" / "dns:hostname" → protocol only
+        # Lookahead (?=[^\d]) ensures we don't strip "ssh:22" style port refs
+        c = re.sub(r'^(http|https|dns|email|ssh|ftp):(?=[^\d])[^\s]+', r'\1', c)
+        # Collapse httpd token so "apache httpd/2.4.7" → "apache  2.4.7"
+        c = c.replace("httpd/", " ")
         c = c.replace("httpd ", " ")
+        # Remove spaces before applying version patterns
         c = c.replace(" ", "")
-        return c
+        # Apache with version → "apache" (covers "apache/2.4.7" and "apache2.4.7")
+        c = re.sub(r'apache/[\d\.]+.*', 'apache', c)
+        c = re.sub(r'apache[\d\.]+.*', 'apache', c)
+        return c.strip()
 
     def _normalize_title(self, title: str) -> str:
         """
@@ -548,6 +562,15 @@ class AgenticLoop:
         t = re.sub(r"apache\s+\d+[\.\d]+\s*", "apache ", t)
         t = re.sub(r"apache\s+http\s+server\s*", "apache ", t)
         t = re.sub(r"apache\s+httpd\s*", "apache ", t)
+
+        # Normalize "missing X security headers" patterns across sources
+        t = re.sub(r'(apache\s+)?missing\s+(http\s+)?security\s+headers?',
+                   'missing security headers', t)
+        t = re.sub(r'missing\s+(http\s+)?security\s+headers?',
+                   'missing security headers', t)
+
+        # Strip orphaned "cve" token left after CVE ID removal
+        t = re.sub(r'\bcve\b', '', t).strip()
 
         # Collapse whitespace
         t = re.sub(r"\s+", " ", t).strip()
@@ -584,7 +607,7 @@ class AgenticLoop:
             new_norm_component = self._normalize_component(f.affected_component or "")
 
             fuzzy_match = None
-            best_ratio  = 0.82
+            best_ratio  = 0.72
 
             for (ex_title, ex_comp), existing_f in index.items():
                 if ex_comp != new_norm_component and ex_comp and new_norm_component:

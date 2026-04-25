@@ -48,6 +48,20 @@ class ParsedAIResponse:
 _CVE_RE     = re.compile(r"CVE-\d{4}-\d+", re.IGNORECASE)
 _VALID_SEVS = frozenset({"critical", "high", "medium", "low", "info"})
 
+
+def _strip_markdown(text: str) -> str:
+    """Remove markdown formatting from AI-generated text fields."""
+    if not text:
+        return text
+    text = re.sub(r'```[^\n]*\n', '', text)
+    text = re.sub(r'```', '', text)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = re.sub(r'__([^_]+)__', r'\1', text)
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
 # CVE ID → list of version strings it actually affects.
 # If the finding's component doesn't contain at least one of these,
 # the CVE is removed from the finding.
@@ -71,6 +85,14 @@ CVE_VERSION_CONSTRAINTS: dict[str, list[str]] = {
                        "7.3", "7.4", "7.5", "7.6", "7.7"],
     "CVE-2023-38408": ["openssh"],
     "CVE-2023-51385": ["openssh"],
+    # WordPress/plugin CVE — remove from Apache components
+    "CVE-2019-12332": ["wordpress", "wp-", "plugin"],
+    # Fabricated or non-Apache CVEs — always removed (empty constraint list)
+    "CVE-2018-12673": [],
+    "CVE-2018-12325": [],
+    # Cross-product guard
+    "CVE-2010-5368":  ["modsecurity", "mod_security"],
+    "CVE-2007-6750":  ["apache", "2.2.", "2.0.", "1.3."],
 }
 
 
@@ -187,12 +209,18 @@ class AIParser:
         return FindingData(
             severity           = severity,
             category           = category or "misconfiguration",
-            title              = title,
-            description        = self._get_text(block, "description"),
+            title              = _strip_markdown(title),
+            description        = _strip_markdown(
+                self._get_text(block, "description")
+            ),
             affected_component = self._get_text(block, "component"),
             cve_ids            = cve_ids,
-            exploit_notes      = self._get_text(block, "exploit"),
-            remediation        = self._get_text(block, "remediation"),
+            exploit_notes      = _strip_markdown(
+                self._get_text(block, "exploit")
+            ),
+            remediation        = _strip_markdown(
+                self._get_text(block, "remediation")
+            ),
             references         = [],
             confidence_score   = confidence,
         )
