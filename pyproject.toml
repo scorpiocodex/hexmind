@@ -10,7 +10,7 @@ readme          = "README.md"
 requires-python = ">=3.11"
 license         = {text = "MIT"}
 authors         = [
-    {name = "scorpiocodex", email = "212041449+212041449+scorpiocodex@users.noreply.github.com"}
+    {name = "scorpiocodex", email = "212041449+scorpiocodex@users.noreply.github.com"}
 ]
 keywords = [
     "pentesting", "security", "ai", "ollama", "nmap",
