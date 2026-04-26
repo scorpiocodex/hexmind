@@ -1,9 +1,15 @@
-# HexMind v0.1.0-alpha — AI Penetration Testing Assistant
+# ⬡ HexMind
 
-> Fully local, CLI-based AI pentesting assistant powered by Ollama.
-> No cloud. No API keys. Everything runs on your machine.
+[![Version](https://img.shields.io/badge/version-v0.1.0--alpha-blue?style=flat-square)](https://github.com/scorpiocodex/hexmind/releases)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![AI](https://img.shields.io/badge/AI-Ollama%20%2B%20Mistral-purple?style=flat-square)](https://ollama.com)
+[![Status](https://img.shields.io/badge/status-alpha-orange?style=flat-square)]()
 
-`Python 3.11+` · `SQLite` · `Ollama/Mistral` · `Rich TUI` · `MIT License`
+> **Next-generation AI penetration testing assistant.**
+> Fully local · Zero cloud · No API keys · Everything runs on your machine.
+
+`Python 3.11+` · `Ollama + Mistral` · `SQLite` · `Rich TUI` · `MIT License`
 
 ---
 
@@ -169,3 +175,39 @@ jurisdiction. The authors accept no liability for misuse.
 | 1.0.0 | Stable | Production-ready release, installer, docs site |
 | 2.0.0 | Stable | Batch scanning, CI/CD integration, findings API |
 | 3.0.0 | Stable | Scheduling, team features, cloud-optional AI fallback |
+
+---
+
+## Contributing
+
+HexMind is in active alpha development. Contributions, bug reports,
+and feature requests are welcome.
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feat/your-feature`
+3. Commit your changes: `git commit -m "feat: description"`
+4. Push and open a Pull Request
+
+Please test against `scanme.nmap.org` (Nmap's official test target)
+before submitting scan-related changes.
+
+---
+
+## Legal Notice
+
+**Only scan systems you own or have explicit written permission to test.**
+
+HexMind is designed for authorized security testing, CTF competitions,
+and educational use only. Unauthorized scanning may violate the Computer
+Fraud and Abuse Act (CFAA), the Computer Misuse Act, and equivalent laws
+in your jurisdiction. The authors accept no liability for misuse.
+
+---
+
+## Author
+
+Built by [scorpiocodex](https://github.com/scorpiocodex)
+
+---
+
+*HexMind v0.1.0-alpha — Built with Python, Ollama, and a lot of nmap.*

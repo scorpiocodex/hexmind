@@ -3,16 +3,31 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hexmind"
-version = "0.1.0"
-description = "AI-powered local penetration testing assistant"
+name            = "hexmind"
+version         = "0.1.0"
+description     = "AI-powered local penetration testing assistant — fully local, zero cloud"
+readme          = "README.md"
 requires-python = ">=3.11"
+license         = {text = "MIT"}
+authors         = [
+    {name = "scorpiocodex", email = "212041449+scorpiocodex@users.noreply.github.com"}
+]
+keywords = [
+    "pentesting", "security", "ai", "ollama", "nmap",
+    "vulnerability-scanner", "cli", "recon", "cybersecurity"
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Topic :: Security",
+    "Topic :: System :: Networking :: Monitoring",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
 ]
 dependencies = [
     "typer==0.12.5",
@@ -28,8 +43,20 @@ dependencies = [
     "python-dotenv==1.0.1",
 ]
 
+[project.urls]
+Homepage      = "https://github.com/scorpiocodex/hexmind"
+Repository    = "https://github.com/scorpiocodex/hexmind"
+"Bug Tracker" = "https://github.com/scorpiocodex/hexmind/issues"
+Changelog     = "https://github.com/scorpiocodex/hexmind/releases"
+
 [project.scripts]
 hexmind = "hexmind.cli:app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
