@@ -183,3 +183,4 @@ config.toml
 tests/__pycache__/
 tests/*.pyc
 .pytest_cache/
+assets/
