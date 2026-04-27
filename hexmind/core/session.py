@@ -287,7 +287,7 @@ class ScanSession:
         findings = f_repo.get_for_scan(scan_id)
 
         # Calculate effective risk — always produces a number
-        weights = {"critical": 40, "high": 20, "medium": 8, "low": 2, "info": 0}
+        from hexmind.constants import RISK_WEIGHTS as weights
         if state.risk_score is not None:
             effective_risk = state.risk_score
         elif findings:

@@ -186,7 +186,11 @@ class AgenticLoop:
             parsed.tool_requests, state.executed_tool_requests
         )
 
-        if self._check_convergence(state, parsed.findings, deduped_tool_reqs, is_final):
+        if self._check_convergence(
+            state, parsed.findings, deduped_tool_reqs, is_final,
+            parsed_findings_count=len(parsed.findings),
+            iteration=iteration,
+        ):
             state.converged = True
             print_phase_separator(
                 f"PHASE 2 — AI ANALYSIS  Pass {iteration}/{self.max_iterations}",
@@ -435,10 +439,21 @@ class AgenticLoop:
         state:    AgenticLoopState,
     ) -> dict:
         """Execute AI-requested tool runs. Validates names, parses args with shlex."""
+        BLOCKED_TOOLS = {
+            "cve-finder", "metasploit", "msfconsole", "msfvenom",
+            "sqlmap", "hydra", "john", "hashcat",
+        }
         new_results: dict = {}
 
         for req in requests:
             tool_name = req.tool.lower().strip()
+
+            if tool_name in BLOCKED_TOOLS:
+                console.print(
+                    f"  [yellow]⚠ AI requested blocked tool "
+                    f"'{req.tool}' — skipped.[/]"
+                )
+                continue
 
             if tool_name not in TOOL_BINARIES:
                 print_warning(f"AI requested unknown tool '{tool_name}' — skipped.")
@@ -503,22 +518,26 @@ class AgenticLoop:
 
     def _check_convergence(
         self,
-        state:        AgenticLoopState,
-        new_findings: list[FindingData],
-        tool_reqs:    list[ToolRequest],
-        is_final:     bool,
+        state:                 AgenticLoopState,
+        new_findings:          list[FindingData],
+        tool_reqs:             list[ToolRequest],
+        is_final:              bool,
+        parsed_findings_count: int = 0,
+        iteration:             int = 1,
     ) -> bool:
         """
         Converge if:
         1. is_final (last iteration)
         2. No new tool requests AND no new finding titles vs previous iteration
+           AND the AI actually returned findings (not a failed/markdown parse)
         """
         if is_final:
             return True
 
         if not tool_reqs:
+            parsed_ok  = parsed_findings_count > 0 or iteration < self.max_iterations - 1
             new_titles = {f.title for f in new_findings}
-            if state.last_finding_titles and not (new_titles - state.last_finding_titles):
+            if parsed_ok and state.last_finding_titles and not (new_titles - state.last_finding_titles):
                 return True
 
         return False

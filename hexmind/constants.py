@@ -54,6 +54,15 @@ SEVERITY_RANKS: dict[str, int] = {
     "info": 4,
 }
 
+# Severity → risk score weights (used by _finalize_scan)
+RISK_WEIGHTS: dict[str, int] = {
+    "critical": 40,
+    "high":     20,
+    "medium":   10,
+    "low":       3,
+    "info":      0,
+}
+
 # Tool binary names (keys match runner .name attributes)
 TOOL_BINARIES: dict[str, str] = {
     "nmap": "nmap",
@@ -112,7 +121,7 @@ SCAN_PROFILES: dict[str, dict] = {
     },
     "stealth": {
         # Top 1000 ports, slow timing — -sT works without root
-        "nmap_flags": ["-T1", "-sT", "-sV", "--open"],
+        "nmap_flags": ["-T2", "-sT", "-sV", "--open"],
         "nikto_mode": "light",
         "run_gobuster": False,
         "run_ssl": True,

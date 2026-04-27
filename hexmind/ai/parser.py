@@ -88,8 +88,14 @@ CVE_VERSION_CONSTRAINTS: dict[str, list[str]] = {
     # WordPress/plugin CVE — remove from Apache components
     "CVE-2019-12332": ["wordpress", "wp-", "plugin"],
     # Fabricated or non-Apache CVEs — always removed (empty constraint list)
+    "CVE-2018-12035": [],
+    "CVE-2018-12395": [],
     "CVE-2018-12673": [],
     "CVE-2018-12325": [],
+    "CVE-2018-12674": [],
+    # Pulse Secure VPN CVEs — never valid on Apache/web components
+    "CVE-2019-11510": ["pulse", "vpn", "ivanti"],
+    "CVE-2019-11539": ["pulse", "vpn", "ivanti"],
     # Cross-product guard
     "CVE-2010-5368":  ["modsecurity", "mod_security"],
     "CVE-2007-6750":  ["apache", "2.2.", "2.0.", "1.3."],
@@ -225,6 +231,83 @@ class AIParser:
             confidence_score   = confidence,
         )
 
+    def _is_noise_finding(self, finding: FindingData) -> bool:
+        """Returns True if finding should be suppressed as noise."""
+        noise_titles = {
+            "google analytics", "google tag manager",
+            "jquery", "wordpress", "cloudflare",
+            "google fonts",
+        }
+        title_lower = (finding.title or "").lower()
+        rem_lower   = (finding.remediation or "").lower()
+        expl_lower  = (finding.exploit_notes or "").lower()
+
+        if any(n in title_lower for n in noise_titles):
+            if any(p in rem_lower for p in
+                   ["none required", "not required",
+                    "no action", "not applicable"]):
+                return True
+        if "no known exploit" in expl_lower:
+            if "not applicable" in rem_lower:
+                return True
+        return False
+
+    def _parse_markdown_findings(self, response: str) -> list[FindingData]:
+        """Fallback parser for when AI responds with markdown bullet list instead of XML."""
+        findings = []
+
+        block_pattern = re.compile(
+            r'\d+\.\s+\*{0,2}(CRITICAL|HIGH|MEDIUM|LOW|INFO)'
+            r'[^-\n]*[-–]\s*([^\n\*]+)\*{0,2}',
+            re.IGNORECASE
+        )
+        for match in block_pattern.finditer(response):
+            severity = match.group(1).lower()
+            title    = match.group(2).strip()
+
+            start      = match.end()
+            next_match = block_pattern.search(response, start)
+            end        = next_match.start() if next_match else len(response)
+            block      = response[start:end]
+
+            desc = self._extract_md_field(block, "description")
+            expl = self._extract_md_field(block, "exploit")
+            rem  = self._extract_md_field(block, "remediation")
+            comp = self._extract_md_field(block, "component")
+            conf = self._extract_md_confidence(block)
+
+            if not title or not desc:
+                continue
+
+            findings.append(FindingData(
+                severity           = severity,
+                category           = "vulnerability",
+                title              = _strip_markdown(title),
+                description        = _strip_markdown(desc),
+                affected_component = comp or "",
+                cve_ids            = [],
+                exploit_notes      = _strip_markdown(expl),
+                remediation        = _strip_markdown(rem),
+                references         = [],
+                confidence_score   = conf,
+            ))
+
+        return findings
+
+    def _extract_md_field(self, block: str, field: str) -> str:
+        pattern = re.compile(
+            rf'-\s+{field}[:\s]+([^\n-]+)',
+            re.IGNORECASE
+        )
+        m = pattern.search(block)
+        return m.group(1).strip() if m else ""
+
+    def _extract_md_confidence(self, block: str) -> float:
+        m = re.search(r'confidence[:\s]+(\d+)%', block, re.IGNORECASE)
+        if m:
+            return int(m.group(1)) / 100
+        return 0.70
+
     def parse_structured(
         self,
         response: str,
@@ -241,7 +324,12 @@ class AIParser:
             f = self._parse_finding(block)
             if f is not None:
                 f = self._filter_cve_versions(f)
+                if self._is_noise_finding(f):
+                    continue
                 findings.append(f)
+
+        if not findings:
+            findings = self._parse_markdown_findings(response)
 
         # ── Tool requests ──────────────────────────────────────────────────
         tool_requests: list[ToolRequest] = []

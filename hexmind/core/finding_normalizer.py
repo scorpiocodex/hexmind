@@ -34,6 +34,14 @@ def normalize_finding_title(title: str) -> str:
     t = re.sub(r'apache\s+http\s+server\s*', 'apache ', t)
     t = re.sub(r'apache\s+httpd\s*', 'apache ', t)
 
+    # Normalize "outdated" finding variants to canonical form
+    t = re.sub(
+        r'(apache\s+)?(http\s+server\s+)?[\d\.]+\s+outdated',
+        'apache outdated',
+        t
+    )
+    t = re.sub(r'(apache\s+)?outdated\s+version', 'apache outdated', t)
+
     # Normalize ALL "missing security headers" variants to one canonical form
     t = re.sub(
         r'(apache\s+)?(missing\s+(http\s+)?security\s+headers?)',
@@ -95,6 +103,11 @@ def normalize_component(component: str) -> str:
 
     dns_tokens = {'dns', 'email', 'emailinfrastructure', 'mail'}
     if c_stripped in dns_tokens or 'email' in c_stripped:
+        return 'dns'
+
+    # Force email-security protocol findings to "dns" component
+    email_keywords = {"spf", "dmarc", "dkim", "email security", "email infrastructure"}
+    if any(k in c_stripped for k in email_keywords):
         return 'dns'
 
     if 'ssh' in c_stripped or 'openssh' in c_stripped:
