@@ -190,12 +190,16 @@ def render_scan_complete_box(
     risk_label = ""
     risk_color = COLOR_SLATE
     if risk_score is not None:
-        if risk_score >= 70:
-            risk_label, risk_color = "HIGH",   COLOR_RED
-        elif risk_score >= 40:
-            risk_label, risk_color = "MEDIUM", COLOR_ORANGE
-        else:
-            risk_label, risk_color = "LOW",    COLOR_SOFT_GREEN
+        from hexmind.constants import get_risk_label
+        risk_label = get_risk_label(risk_score)
+        _risk_colors = {
+            "CRITICAL": COLOR_RED,
+            "HIGH":     COLOR_ORANGE,
+            "MEDIUM":   COLOR_YELLOW,
+            "LOW":      COLOR_SOFT_GREEN,
+            "MINIMAL":  COLOR_SLATE,
+        }
+        risk_color = _risk_colors.get(risk_label, COLOR_SLATE)
 
     lines: list[Text] = [
         Text.assemble(
