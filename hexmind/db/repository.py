@@ -325,7 +325,9 @@ class FindingRepository:
         exists for this scan. Uses shared normalization to match
         across bridge findings and AI findings.
         """
-        from hexmind.core.finding_normalizer import normalize_finding_title
+        from hexmind.core.finding_normalizer import (
+            normalize_finding_title, normalize_component_with_title,
+        )
 
         norm_title = normalize_finding_title(title)
 

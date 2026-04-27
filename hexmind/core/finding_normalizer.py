@@ -13,6 +13,11 @@ def normalize_finding_title(title: str) -> str:
     """
     t = (title or "").strip().strip('"').strip("'").lower()
 
+    # Pre-pass: strip URL-style parentheticals before generic paren removal
+    t = re.sub(r'\s*\([^)]*\.(nmap|org|com|net|io|local)[^)]*\)', '', t).strip()
+    t = re.sub(r'\s*\([^)]*:\d{1,5}[^)]*\)', '', t).strip()
+    t = re.sub(r'\s*\(https?://[^)]+\)', '', t).strip()
+
     # Iteratively strip parenthetical content (handles nesting)
     for _ in range(4):
         prev = t
@@ -47,6 +52,18 @@ def normalize_finding_title(title: str) -> str:
         r'(apache\s+)?(missing\s+(http\s+)?security\s+headers?)',
         'missing security headers',
         t,
+    )
+
+    # Normalize version disclosure variants to one canonical form
+    t = re.sub(
+        r'\bversion\s+(information\s+)?disclos\w+',
+        'version information disclosed',
+        t
+    )
+    t = re.sub(
+        r'\b(?:apache\s+|server\s+)?version\s+information\s+disclosed',
+        'server version information disclosed',
+        t
     )
 
     # Strip common vulnerability type terms so CVE-named and type-named
@@ -121,3 +138,22 @@ def normalize_component(component: str) -> str:
         return 'db'
 
     return c_stripped or 'unknown'
+
+
+def normalize_component_with_title(
+    component: str, title: str = ""
+) -> str:
+    """
+    Component normalization that also checks the finding title
+    for email-security keywords when component is ambiguous.
+    """
+    title_lower = (title or "").lower()
+    email_title_keywords = {
+        "spf", "dmarc", "dkim", "email security",
+        "email infrastructure",
+    }
+    comp_lower = (component or "").lower().strip()
+    if comp_lower in {"", "n/a", "-", "—", "none", "unknown"}:
+        if any(k in title_lower for k in email_title_keywords):
+            return "dns"
+    return normalize_component(component)

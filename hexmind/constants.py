@@ -63,6 +63,24 @@ RISK_WEIGHTS: dict[str, int] = {
     "info":      0,
 }
 
+# Risk score → label thresholds (inclusive ranges)
+RISK_THRESHOLDS: dict[str, tuple[int, int]] = {
+    "CRITICAL": (71, 100),
+    "HIGH":     (41,  70),
+    "MEDIUM":   (21,  40),
+    "LOW":      (1,   20),
+    "MINIMAL":  (0,    0),
+}
+
+
+def get_risk_label(score: int) -> str:
+    """Return risk label string for a 0–100 risk score."""
+    for label, (low, high) in RISK_THRESHOLDS.items():
+        if low <= score <= high:
+            return label
+    return "LOW"
+
+
 # Tool binary names (keys match runner .name attributes)
 TOOL_BINARIES: dict[str, str] = {
     "nmap": "nmap",

@@ -543,8 +543,8 @@ class AgenticLoop:
         return False
 
     def _normalize_component(self, component: str) -> str:
-        from hexmind.core.finding_normalizer import normalize_component
-        return normalize_component(component)
+        from hexmind.core.finding_normalizer import normalize_component_with_title
+        return normalize_component_with_title(component, "")
 
     def _normalize_title(self, title: str) -> str:
         from hexmind.core.finding_normalizer import normalize_finding_title
@@ -558,10 +558,12 @@ class AgenticLoop:
         """Merge findings with two-stage deduplication: exact key + fuzzy title."""
         import difflib
 
+        from hexmind.core.finding_normalizer import normalize_component_with_title
+
         index: dict[tuple[str, str], FindingData] = {
             (
                 self._normalize_title(f.title),
-                self._normalize_component(f.affected_component or ""),
+                normalize_component_with_title(f.affected_component or "", f.title or ""),
             ): f
             for f in existing
         }
@@ -569,7 +571,7 @@ class AgenticLoop:
         for f in new:
             key = (
                 self._normalize_title(f.title),
-                self._normalize_component(f.affected_component or ""),
+                normalize_component_with_title(f.affected_component or "", f.title or ""),
             )
 
             if key in index:
@@ -578,7 +580,7 @@ class AgenticLoop:
                 continue
 
             new_norm_title     = self._normalize_title(f.title)
-            new_norm_component = self._normalize_component(f.affected_component or "")
+            new_norm_component = normalize_component_with_title(f.affected_component or "", f.title or "")
 
             fuzzy_match = None
             best_ratio  = 0.72

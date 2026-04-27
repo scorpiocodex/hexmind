@@ -93,6 +93,12 @@ CVE_VERSION_CONSTRAINTS: dict[str, list[str]] = {
     "CVE-2018-12673": [],
     "CVE-2018-12325": [],
     "CVE-2018-12674": [],
+    "CVE-2018-12063": [],
+    "CVE-2019-0235":  [],
+    "CVE-2010-1622":  [],
+    "CVE-2018-8174":  [],
+    "CVE-2019-5123":  [],
+    "CVE-2017-9754":  [],
     # Pulse Secure VPN CVEs — never valid on Apache/web components
     "CVE-2019-11510": ["pulse", "vpn", "ivanti"],
     "CVE-2019-11539": ["pulse", "vpn", "ivanti"],
@@ -230,6 +236,16 @@ class AIParser:
             references         = [],
             confidence_score   = confidence,
         )
+
+    def _looks_fabricated(self, cve_id: str) -> bool:
+        """Heuristic checks for likely-fabricated CVE IDs."""
+        m = re.match(r'CVE-(\d{4})-(\d+)$', cve_id, re.IGNORECASE)
+        if not m:
+            return True
+        year = int(m.group(1))
+        if year < 1999 or year > 2026:
+            return True
+        return False
 
     def _is_noise_finding(self, finding: FindingData) -> bool:
         """Returns True if finding should be suppressed as noise."""
