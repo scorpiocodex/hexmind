@@ -154,17 +154,6 @@ default_profile = "standard"
 
 ---
 
-## Legal Notice
-
-**Only scan systems you own or have explicit written permission to test.**
-
-HexMind is designed for authorized security testing, CTF competitions, and
-educational use only. Unauthorized scanning may violate the Computer Fraud
-and Abuse Act (CFAA), the Computer Misuse Act, and equivalent laws in your
-jurisdiction. The authors accept no liability for misuse.
-
----
-
 ## Roadmap
 
 | Version | Stage | Description |
