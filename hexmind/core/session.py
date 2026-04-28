@@ -135,7 +135,7 @@ class ScanSession:
                     )
 
                 # ── 5. Finalize ───────────────────────────────────────────
-                self._finalize_scan(scan_id, state, repos)
+                self._finalize_scan(scan_id, state, repos, state.all_findings)
 
                 duration = time.monotonic() - self._start_time
 
@@ -276,9 +276,10 @@ class ScanSession:
 
     def _finalize_scan(
         self,
-        scan_id: int,
-        state:   AgenticLoopState,
-        repos:   dict,
+        scan_id:        int,
+        state:          AgenticLoopState,
+        repos:          dict,
+        final_findings: list = [],
     ) -> None:
         """Mark scan complete, print findings table and summary box."""
         s_repo: ScanRepository    = repos["scan"]
@@ -286,15 +287,16 @@ class ScanSession:
 
         findings = f_repo.get_for_scan(scan_id)
 
-        # Calculate effective risk — always produces a number
-        from hexmind.constants import RISK_WEIGHTS as weights
+        # Calculate risk from the final deduplicated FindingData list,
+        # not the DB query which may include pre-dedup bridge findings.
+        from hexmind.constants import RISK_WEIGHTS
         if state.risk_score is not None:
             effective_risk = state.risk_score
-        elif findings:
+        elif final_findings:
             score = sum(
-                weights.get(f.severity.lower(), 0)
-                for f in findings
-                if not f.false_positive
+                RISK_WEIGHTS.get(f.severity.lower(), 0)
+                for f in final_findings
+                if not getattr(f, "false_positive", False)
             )
             effective_risk = min(100, score)
         else:

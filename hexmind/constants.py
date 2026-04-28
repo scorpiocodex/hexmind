@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-HEXMIND_VERSION: str = "0.1.0"
+HEXMIND_VERSION: str = "0.2.0"
+VERSION: str = HEXMIND_VERSION
 HEXMIND_CODENAME: str = "alpha"
 
 VERSION_ROADMAP: dict[str, str] = {

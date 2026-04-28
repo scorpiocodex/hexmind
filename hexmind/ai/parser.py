@@ -99,6 +99,7 @@ CVE_VERSION_CONSTRAINTS: dict[str, list[str]] = {
     "CVE-2018-8174":  [],
     "CVE-2019-5123":  [],
     "CVE-2017-9754":  [],
+    "CVE-2019-15567": [],   # OpenForis Arena SQL injection — not Apache
     # Pulse Secure VPN CVEs — never valid on Apache/web components
     "CVE-2019-11510": ["pulse", "vpn", "ivanti"],
     "CVE-2019-11539": ["pulse", "vpn", "ivanti"],
